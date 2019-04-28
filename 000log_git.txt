@@ -1,0 +1,12 @@
+#
+# initiate in source dir and push
+#
+git init
+git add -A
+git status
+git commit -m "load everything for the first time"
+
+git remote
+git remote add origin https://github.com/stoneager/pyAlpha.git
+git remote
+git push -u origin master
