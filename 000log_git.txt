@@ -1,5 +1,5 @@
 #
-# initiate in source dir and push
+# initiate in source dir and push for the first time
 #
 git init
 git add -A
@@ -10,3 +10,13 @@ git remote
 git remote add origin https://github.com/stoneager/pyAlpha.git
 git remote
 git push -u origin master
+
+#
+# initiate in recipient dir and pull for the first time
+#
+git init
+git remote
+git remote add origin https://github.com/stoneager/pyAlpha.git
+git remote
+git pull origin master
+
