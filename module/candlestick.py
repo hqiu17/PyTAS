@@ -151,8 +151,13 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3, date_added="", date
 
     #
     # plot last day's low and close
-    plt.axhline(y=df.iloc[-1]["4. close"],color="green",linewidth=0.2)
-    plt.axhline(y=df.iloc[-1]["3. low"]  ,color="green",linewidth=0.2)
+    color_closing="black"
+    if   df.iloc[-1]["4. close"]>df.iloc[-1]["1. open"]:
+        color_closing="green"
+    elif df.iloc[-1]["4. close"]<df.iloc[-1]["1. open"]:
+        color_closing="red"
+    plt.axhline(y=df.iloc[-1]["1. open"],color=color_closing,linewidth=0.2)
+    plt.axhline(y=df.iloc[-1]["4. close"]  ,color=color_closing,linewidth=0.2)
 
     #
     # plot vertical lines
@@ -160,15 +165,19 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3, date_added="", date
         plt.axvspan(df.index[-480],df.index[-241],color="grey", alpha=0.1)
     elif sample_size > 240:
         plt.axvspan(df.index[0],df.index[-241],color="grey", alpha=0.1)
-    if sample_size > 80:
+    if sample_size > 80 and sample_size < 240:
         plt.axvspan(df.index[-80],df.index[-60],color="grey", alpha=0.1)
-    if sample_size > 40:
+    if sample_size > 40 and sample_size < 240:
         plt.axvspan(df.index[-40],df.index[-20],color="grey", alpha=0.1)
     
     # plot 2018 dip
     index = date_to_index(pd.to_datetime("2018-12-26 00:00:00"), df['Date close'])
     dip_xcoordiante = df.index[index]
-    plt.axvline(x=dip_xcoordiante,color="red",dashes=[5,10],linewidth=0.4)
+    plt.axvline(x=dip_xcoordiante,color="brown",dashes=[5,10],linewidth=1)
+    index = date_to_index(pd.to_datetime("2018-10-4 00:00:00"), df['Date close'])
+    dip_xcoordiante = df.index[index]
+    plt.axvline(x=dip_xcoordiante,color="brown",dashes=[5,10],linewidth=1)
+    
     # plot specified dates
     if date_added:
         index = date_to_index(date_added, df['Date close'])
@@ -205,7 +214,8 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3, date_added="", date
         plt.bar(data["xcord"], body_range,  data["width"],   bottom=body_low,  color=data["color"] )
         if sample_size < 500:
             plt.bar(data["xcord"], price_range, data["width"]/5, bottom=price_low, color=data["color"] )
-        # plot market background data
+            
+        # plot market market benchmark data
         if sample_size < 200 and "weather" in df.columns:
             mchange = data["weather"]
             mycolor = "yellow"

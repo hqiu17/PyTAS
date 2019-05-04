@@ -74,14 +74,15 @@ def fix_dateAdded(day):
 
 def pick_V_G_VGM(series):
     i = False
-    if (series["Growth Score"] <= "B"):
-        if (series["Value Score"] <= "C"):
+    if (series["Growth Score"] <= "C"):
+        if (series["Value Score"] <= "D"):
             i = True
-        elif series["VGM Score"] == "A":
+        elif "VGM Score" in series:
+            if series["VGM Score"] == "A":
+                i = True
+    elif "VGM Score" in series:
+        if series["VGM Score"] == "A":
             i = True
-    elif  series["VGM Score"] == "A":
-        i = True
-
     return i
 
 

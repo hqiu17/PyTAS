@@ -21,7 +21,7 @@ from matplotlib.font_manager import FontProperties
 if __name__ == "__main__":
 
     def draw_list_candlestick(file, vgm, uptrend, sort_trange, sort_madistance, sort_brokerrecomm,
-                            dayspan, dateAddedSort, cutoffBroker, gradient, filterOnly):
+                            sort_industry, dayspan, dateAddedSort, cutoffBroker, cutBrokerbuyCount,gradient, filterOnly):
         """
             draw candlestick for a list of sticker listed in a file
             the stick prices are stored in a directory
@@ -29,6 +29,7 @@ if __name__ == "__main__":
         #
         # pre-processing rank_data
         df = pd.read_csv(file, sep="\t")
+        df = df[~df["Industry"].str.contains("Oil and Gas")]
         
         if "Date Added" in df.columns:
             df["Date Added"] = df["Date Added"].apply(utility.fix_dateAdded)
@@ -61,9 +62,13 @@ if __name__ == "__main__":
             file_name = file_name + ".sMAdist"
         if sort_brokerrecomm:
             file_name = file_name + ".sBroker"
+        if sort_industry:
+            file_name = file_name + ".sIndustry"
         if cutoffBroker>0:
             file_name = file_name + ".cbr" + str(int(cutoffBroker*100))
-                    
+        if cutBrokerbuyCount>0:
+            file_name = file_name + ".cbc" + str(int(cutBrokerbuyCount))        
+        
         securities={}
         count=1000
         
@@ -128,8 +133,10 @@ if __name__ == "__main__":
             df=symbols
             df=df.sort_values(["close-50MA"],ascending=True)
             
-        if sort_brokerrecomm:
+        if sort_brokerrecomm and "# Rating Strong Buy or Buy" in df:
             df=df.sort_values(["# Rating Strong Buy or Buy"],ascending=False)
+        if sort_industry and "Industry" in df:
+            df=df.sort_values(["Industry"])
         #
         # read SPY data
         spy =  dir+"/"+"SPY"+".txt"
@@ -149,7 +156,7 @@ if __name__ == "__main__":
             note = ""
             # prepare head note for display in chart
             if "Zacks Rank" in row:
-                note = note + " ZR-{}".format(str(row["Zacks Rank"]))
+                note = note + " ZR-{}".format(str(int(row["Zacks Rank"])))
             if "Value Score" in row:
                 if vgm and not utility.pick_V_G_VGM(row):
                     continue
@@ -159,13 +166,16 @@ if __name__ == "__main__":
                                       #row["VGM Score"]
                                       )
             if "# Rating Strong Buy or Buy" in row and "# of Brokers in Rating" in row:
-                note = note + " BR-{}/{}".format(row["# Rating Strong Buy or Buy"],
-                                                row["# of Brokers in Rating"]
+                note = note + " BR-{}/{}".format(int(row["# Rating Strong Buy or Buy"]),
+                                                int(row["# of Brokers in Rating"])
                                                 )
                 if cutoffBroker>0:
                     myratio = row["# Rating Strong Buy or Buy"]/row["# of Brokers in Rating"]
                     if myratio < cutoffBroker:
                         continue
+                if cutBrokerbuyCount>0:
+                	if row["# Rating Strong Buy or Buy"] < cutBrokerbuyCount:
+                		continue
             if "Long-Term Growth Consensus Est." in row:
                 note = note + " TLG-{}".format(row["Long-Term Growth Consensus Est."])
             
@@ -240,7 +250,9 @@ if __name__ == "__main__":
             draw(file_name, securities, count, panel_row, panel_col, to_be_recycled, dayspan, gradient)
             #print ("", end="\r", flush=True)
         df_filtered.index.name="Symbol"
-        df_filtered.to_csv(file_name+".txt",sep="\t")
+        
+        if filterOnly:
+	        df_filtered.to_csv(file_name+".txt",sep="\t")
         
         """
         # plot "2 scale" while going through a list of dipped symbols
@@ -315,9 +327,12 @@ if __name__ == "__main__":
     parser.add_argument("-cup", "--uptrend" ,
                         type=int, default=0,
                         help=": set period length for uptrend definition")
-    parser.add_argument("-cbr", "--cutoffBroker" ,
+    parser.add_argument("-cbr", "--cutBrokerbuyRatio",
                         type=float, default=0,
-                        help=": set cut-off for broker buy recommendation frequency")
+                        help=": set cut-off for broker buy recommendation ratio")
+    parser.add_argument("-cbc", "--cutBrokerbuyCount",
+                        type=float, default=0,
+                        help=": set cut-off for broker buy recommendation count")
     # SORT
     parser.add_argument("-da","--dateAdded",
                         help=": sort by date added",
@@ -330,6 +345,9 @@ if __name__ == "__main__":
                         action='store_true')
     parser.add_argument("-sbr", "--sort_brokerrecomm",
                         help=": sort by up trading range",
+                        action='store_true')
+    parser.add_argument("-sid", "--sort_industry",
+                        help=": sort by industry",
                         action='store_true')
     
     # SKIP CHARTING
@@ -346,9 +364,11 @@ if __name__ == "__main__":
         draw_list_candlestick(list, args.vgm, args.uptrend, args.sort_trange, 
                                 args.sort_madistance,
                                 args.sort_brokerrecomm,
+                                args.sort_industry,
                                 args.period,
                                 args.dateAdded,
-                                args.cutoffBroker,
+                                args.cutBrokerbuyRatio,
+                                args.cutBrokerbuyCount,
                                 args.gradient,
                                 args.filterOnly)
 
