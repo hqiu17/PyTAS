@@ -244,7 +244,7 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3, date_added="", date
                    fig_xmin+fig_xmax*0.02,
                    fig_ymax, #+(fig_ymax-fig_ymin)*0.05,
                    sticker,
-                   fontsize=26,
+                   fontsize=20,
                    #fontproperties=font,
                    color='blue'
                    )
@@ -255,7 +255,7 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3, date_added="", date
                    fig_xmin+fig_xmax*0.005,
                    fig_ymax-(fig_ymax-fig_ymin)*0.08,
                    difference,
-                   fontsize=18, color='blue'
+                   fontsize=17, color='blue'
                    )
     
     difference = bleedout( df.tail(60)["4. close"] )
@@ -263,7 +263,7 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3, date_added="", date
                    fig_xmin+fig_xmax*0.005,
                    fig_ymax-(fig_ymax-fig_ymin)*0.16,
                    difference,
-                   fontsize=18, color='blue'
+                   fontsize=17, color='blue'
                    )
                    
     difference = up( df["4. close"] )
@@ -271,14 +271,14 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3, date_added="", date
                    fig_xmin+fig_xmax*0.005,
                    fig_ymax-(fig_ymax-fig_ymin)*0.24,
                    difference,
-                   fontsize=18, color='grey'
+                   fontsize=17, color='grey'
                    ) 
     if industry:
         plt.gca().text(
                         fig_xmin+fig_xmax*0.005,
                         fig_ymin*1.01,
                         industry,
-                        fontsize=21, color="black"
+                        fontsize=19, color="black"
                         )
 
     return redraw

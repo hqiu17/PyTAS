@@ -21,7 +21,7 @@ from matplotlib.font_manager import FontProperties
 if __name__ == "__main__":
 
     def draw_list_candlestick(file, vgm, uptrend, sort_trange, sort_madistance, sort_brokerrecomm,
-                            sort_industry, dayspan, dateAddedSort, cutoffBroker, cutBrokerbuyCount,gradient, filterOnly):
+                            sort_industry, dayspan, dateAddedSort, cutoffBroker, cutBrokerbuyCount,gradient, blind, filterOnly):
         """
             draw candlestick for a list of sticker listed in a file
             the stick prices are stored in a directory
@@ -29,7 +29,8 @@ if __name__ == "__main__":
         #
         # pre-processing rank_data
         df = pd.read_csv(file, sep="\t")
-        df = df[~df["Industry"].str.contains("Oil and Gas")]
+        if "Industry" in df:
+            df = df[~df["Industry"].str.contains("Oil and Gas")]
         
         if "Date Added" in df.columns:
             df["Date Added"] = df["Date Added"].apply(utility.fix_dateAdded)
@@ -53,29 +54,35 @@ if __name__ == "__main__":
         file_name = cdstk.file_strip_txt(file)
         print (file_name)
         if vgm:
-            file_name = file_name + ".vgm"
+            file_name = file_name + ".cvg"
+        if blind>0:
+            file_name = file_name + ".bld" + str(blind)
         if abs(uptrend)>0:
-            file_name = file_name + ".u" + str(uptrend)     
-        if sort_trange:
-            file_name = file_name + ".sTradingRange"
-        if sort_madistance:
-            file_name = file_name + ".sMAdist"
-        if sort_brokerrecomm:
-            file_name = file_name + ".sBroker"
-        if sort_industry:
-            file_name = file_name + ".sIndustry"
+            file_name = file_name + ".cup" + str(uptrend)
         if cutoffBroker>0:
             file_name = file_name + ".cbr" + str(int(cutoffBroker*100))
         if cutBrokerbuyCount>0:
-            file_name = file_name + ".cbc" + str(int(cutBrokerbuyCount))        
+            file_name = file_name + ".cbc" + str(int(cutBrokerbuyCount)) 
+        if sort_trange:
+            file_name = file_name + ".str"    # sort by upside trading range
+        if sort_madistance:
+            file_name = file_name + ".sma"    # sort by distance to 50MA
+        if sort_brokerrecomm:
+            file_name = file_name + ".sbr"    # sort by broker recommendation ratio
+        if sort_industry:
+            file_name = file_name + ".sid"    # sort by industry
+            
         
         securities={}
         count=1000
         
         # specify number of rows and columns for the whole chart
+        default_row_num=5
+        if "," in dayspan:
+        	default_row_num=4
         panel_row= cdstk.set_row_num(num_stickers)
-        if panel_row > 4:
-            panel_row = 4
+        if panel_row > default_row_num:
+            panel_row = default_row_num
         panel_col=panel_row
         if ',' in dayspan:
             panel_col = int((panel_col+1)/2)
@@ -156,7 +163,7 @@ if __name__ == "__main__":
             note = ""
             # prepare head note for display in chart
             if "Zacks Rank" in row:
-                note = note + " ZR-{}".format(str(int(row["Zacks Rank"])))
+                note = note + " zr{}".format(str(int(row["Zacks Rank"])))
             if "Value Score" in row:
                 if vgm and not utility.pick_V_G_VGM(row):
                     continue
@@ -166,7 +173,7 @@ if __name__ == "__main__":
                                       #row["VGM Score"]
                                       )
             if "# Rating Strong Buy or Buy" in row and "# of Brokers in Rating" in row:
-                note = note + " BR-{}/{}".format(int(row["# Rating Strong Buy or Buy"]),
+                note = note + "br{}/{}".format(int(row["# Rating Strong Buy or Buy"]),
                                                 int(row["# of Brokers in Rating"])
                                                 )
                 if cutoffBroker>0:
@@ -177,7 +184,7 @@ if __name__ == "__main__":
                 	if row["# Rating Strong Buy or Buy"] < cutBrokerbuyCount:
                 		continue
             if "Long-Term Growth Consensus Est." in row:
-                note = note + " TLG-{}".format(row["Long-Term Growth Consensus Est."])
+                note = note + "ltg{}".format(row["Long-Term Growth Consensus Est."])
             
             # test existence of data for the given symbol
             price = dir+"/"+sticker+".txt"
@@ -192,7 +199,7 @@ if __name__ == "__main__":
                 # otherwise skip this name
                 if abs(uptrend)>0:
                     # skip new stocks with few days with price data
-                    if len(df) < abs(uptrend):
+                    if len(df)-blind < abs(uptrend):
                         continue
                     # exame values of price and move averages
                     def ma_inorder(aday):
@@ -212,10 +219,10 @@ if __name__ == "__main__":
                     if recorded > retrospect:
                         retrospect = recorded
                         
-                    for index in range(-1, retrospect, int(retrospect/checkpoint)):
+                    for index in range(-1-blind, retrospect-blind, int(retrospect/checkpoint)):
                         day = df.iloc[index,:]
                         count_order += ma_inorder(day)
-                    
+                        #print (sticker, str(index), str(ma_inorder(day)), sep="\t")
                     if count_order < checkpoint*cutoff:              
                         continue
 
@@ -315,10 +322,10 @@ if __name__ == "__main__":
                         default="/Users/air1/Watchlist/daliyPrice",
                         help=": a direcotry holding price data for symbols")
     parser.add_argument("-p","--period",
-                        type=str, default="200",                        
+                        type=str, default="200",
                         help=": length of period (days) to plot")
     parser.add_argument("-g","--gradient",
-                        type=int, default=8,
+                        type=int, default=1,
                         help=": size gradient of plot box")
     # FILTERING
     parser.add_argument("-cvg", "--vgm" ,
@@ -349,6 +356,11 @@ if __name__ == "__main__":
     parser.add_argument("-sid", "--sort_industry",
                         help=": sort by industry",
                         action='store_true')
+                        
+    parser.add_argument("-bld", "--blind",
+                        type=int, default=0,
+                        help=": ignore the latest preriod (for hypothesis test)")
+    
     
     # SKIP CHARTING
     parser.add_argument("-f", "--filterOnly",
@@ -370,5 +382,5 @@ if __name__ == "__main__":
                                 args.cutBrokerbuyRatio,
                                 args.cutBrokerbuyCount,
                                 args.gradient,
+                                args.blind,
                                 args.filterOnly)
-
