@@ -1,4 +1,4 @@
-#!/Users/air1/anaconda3/bin/python
+#!/Users/air/anaconda3/bin/python
 # put all downloaded price data into a common dir: daliyPrice
 #
 
