@@ -183,7 +183,7 @@ if __name__ == "__main__":
             mydf["close_shift1"] = mydf["4. close"].shift(periods=1)
             mydf["weather"]=(mydf["4. close"]-mydf["close_shift1"])/mydf["close_shift1"]
             ref=pd.DataFrame(mydf["weather"],index=mydf.index) 
-                
+
         #
         # plot multi-panel figure while going through a list of symbols
         for sticker, row in df.iterrows():
@@ -216,6 +216,15 @@ if __name__ == "__main__":
             if "Long-Term Growth Consensus Est." in row:
                 note = note + "ltg{}".format(row["Long-Term Growth Consensus Est."])
             
+            # prepare annotation
+            antt = ""
+            if "P/E (Trailing 12 Months)" in row:
+                antt = antt + "pe" + str(row["P/E (Trailing 12 Months)"])
+            if "PEG Ratio" in row:
+                antt = antt + "peg" + str(row["PEG Ratio"])
+            if "Next EPS Report Date " in row:
+                antt = antt + "eday" + str(row["Next EPS Report Date "])
+
             # test existence of data for the given symbol
             price = dir+"/"+sticker+".txt"
             if os.path.exists(price):
@@ -262,6 +271,8 @@ if __name__ == "__main__":
                 df_filtered= df_filtered.append(row_copy,ignore_index=False)
                 
                 mysecurity = Security(df)
+                if antt:
+                    mysecurity.set_annotation(antt)
                 if "Date Added" in row:
                     date = row["Date Added"]
                     mysecurity.set_date_added(date)
@@ -271,6 +282,7 @@ if __name__ == "__main__":
                         mysecurity.set_date_sold(utility.fix_dateAdded(date))
                 if "Industry" in row:
                     mysecurity.set_industry(row["Industry"])
+                
                 securities[f"{sticker}: {note}"] = mysecurity
                 
             else:

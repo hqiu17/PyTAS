@@ -19,6 +19,7 @@ class Security:
         self.date_added=""
         self.date_sold=""
         self.industry=""
+        self.annotation=""
     def set_date_added(self, date):
         self.date_added=date
     def set_date_sold(self, date):
@@ -27,6 +28,9 @@ class Security:
         self.note=note
     def set_industry(self, industry):
         self.industry=industry
+    def set_annotation(self, annotation):
+        self.annotation=annotation
+	
                 
     def get_price(self):
         return self.df.copy(deep=True) 
@@ -38,6 +42,8 @@ class Security:
         return self.note
     def get_industry(self):
         return self.industry
+    def get_annotation(self):
+        return self.annotation
                 
 def cstick_sma (df0):
     df=df0.copy(deep=True)    
@@ -124,8 +130,10 @@ def date_to_index(date, series):
     return index_zacks    
     return date_close.index[index_zacks]
 
-def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3, date_added="", date_sold="", industry=""):
-    
+def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3, 
+                       date_added="", date_sold="",
+                       industry="",
+                       annotation=""):
     redraw = 0
     df = df0.copy(deep=True)
     # figure out the maximum/minimum of x/y axis
@@ -241,38 +249,36 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3, date_added="", date
     #
     # plot figure title
     plt.gca().text(
-                   fig_xmin+fig_xmax*0.02,
+                   fig_xmin+fig_xmax*0.005,
                    fig_ymax, #+(fig_ymax-fig_ymin)*0.05,
                    sticker,
                    fontsize=20,
                    #fontproperties=font,
                    color='blue'
                    )
+                   
+    #
+    # write within figure area
+    y_position=0.08
+    if annotation:
+        plt.gca().text(fig_xmin+fig_xmax*0.005,
+                   fig_ymax-(fig_ymax-fig_ymin)*y_position,
+                   annotation,
+                   fontsize=17, color='blue'
+                   )
+        y_position += 0.08
     #
     # plot price drop compared to 30/120 days ago
-    difference = bleedout( df.tail(20)["4. close"] )
+    bleedout_1mon  = bleedout( df.tail(20)["4. close"] )
+    bleedout_3mon  = bleedout( df.tail(60)["4. close"] )
+    growth_alltime = up( df["4. close"] )
     plt.gca().text(
                    fig_xmin+fig_xmax*0.005,
-                   fig_ymax-(fig_ymax-fig_ymin)*0.08,
-                   difference,
+                   fig_ymax-(fig_ymax-fig_ymin)*y_position,
+                   f"v{bleedout_1mon}{bleedout_3mon}^{growth_alltime}",
                    fontsize=17, color='blue'
                    )
-    
-    difference = bleedout( df.tail(60)["4. close"] )
-    plt.gca().text(
-                   fig_xmin+fig_xmax*0.005,
-                   fig_ymax-(fig_ymax-fig_ymin)*0.16,
-                   difference,
-                   fontsize=17, color='blue'
-                   )
-                   
-    difference = up( df["4. close"] )
-    plt.gca().text(
-                   fig_xmin+fig_xmax*0.005,
-                   fig_ymax-(fig_ymax-fig_ymin)*0.24,
-                   difference,
-                   fontsize=17, color='grey'
-                   ) 
+
     if industry:
         plt.gca().text(
                         fig_xmin+fig_xmax*0.005,
@@ -346,10 +352,15 @@ def draw_many_candlesticks(securities,
         #print ("#1", ticker, num_row, num_col, pos-1)
         ax.yaxis.tick_right()
         
+
         #df=cstick_sma(df)
         df=cstick_width_gradient( df.tail(dayspan), widthgradient )
-        redraw = draw_a_candlestick(df, ticker, 3, mysecurity.get_date_added(),
-                                    mysecurity.get_date_sold(),mysecurity.get_industry())
+        redraw = draw_a_candlestick(df, ticker, 3, 
+                                    mysecurity.get_date_added(),
+                                    mysecurity.get_date_sold(),
+                                    mysecurity.get_industry(),
+                                    mysecurity.get_annotation()
+                                    )
         
         if (redraw):
             recycle.append(ticker)
@@ -362,10 +373,13 @@ def draw_many_candlesticks(securities,
             
             df=cstick_sma(df_copy)
             df=cstick_width_gradient( df.tail(int(dayspan2)), widthgradient )
-            redraw = draw_a_candlestick(df, ticker, 3, mysecurity.get_date_added(),
-                                        mysecurity.get_date_sold(),mysecurity.get_industry())
-            
-            
+            redraw = draw_a_candlestick(df, ticker, 3, 
+                                        mysecurity.get_date_added(),
+                                        mysecurity.get_date_sold(),
+                                        mysecurity.get_industry(),
+                                        mysecurity.get_annotation()
+                                        )
+
     #!!! another way to reduce margin:
     #fig=plt.figure(); fig.tight_layout()
     plt.savefig(output, bbox_inches='tight')
@@ -376,12 +390,14 @@ def draw_many_candlesticks(securities,
 def bleedout(pands_series):
     top   = pands_series.max()
     latest= pands_series.iloc[-1]
-    return f"{latest:.2f}/{top:.2f}:{int(((top-latest)/top)*100):>3}%"
+    #return f"{latest:.2f}/{top:.2f}:{int(((top-latest)/top)*100):>3}%"
+    return f"{int(((top-latest)/top)*100)}%"
 
 def up(pandas_series):
     start = pandas_series.iloc[0]
     end   = pandas_series.iloc[-1]
-    return f"{end:.2f}/{start:.2f}:{int(((end-start)/start)*100):>4}%"
+    #return f"{end:.2f}/{start:.2f}:{int(((end-start)/start)*100):>4}%"
+    return f"{int(((end-start)/start)*100)}%"
 
 def set_row_num(total):
     row = total ** (1/2)
