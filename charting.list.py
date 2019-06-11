@@ -1,4 +1,4 @@
-#!/Users/air1/anaconda3/bin/python
+#! /Users/air/anaconda3/bin/python
 # cmp v1:  handle multiple datasets and plot multi-panel figure
 # cmp v20: given a list ticker and directory holding price data, do multi-panel
 #          candlestick plot
@@ -21,7 +21,8 @@ from matplotlib.font_manager import FontProperties
 if __name__ == "__main__":
 
     def draw_list_candlestick(file, vgm, uptrend, sort_trange, sort_madistance, sort_brokerrecomm,
-                            sort_industry, dayspan, dateAddedSort, cutoffBroker, cutBrokerbuyCount,gradient, blind, filterOnly):
+                              sort_industry, dayspan, dateAddedSort, cutoffBroker, cutBrokerbuyCount,
+                              gradient, sort_sink, blind, filterOnly):
         """
             draw candlestick for a list of sticker listed in a file
             the stick prices are stored in a directory
@@ -71,15 +72,18 @@ if __name__ == "__main__":
             file_name = file_name + ".sbr"    # sort by broker recommendation ratio
         if sort_industry:
             file_name = file_name + ".sid"    # sort by industry
-            
+        if ',' in sort_sink:
+            file_name = file_name + ".ssk"    # sort by industry            
         
         securities={}
         count=1000
         
         # specify number of rows and columns for the whole chart
-        default_row_num=5
+        figwidth=40
+        figdepth=24
+        default_row_num=args.rownumber
         if "," in dayspan:
-        	default_row_num=4
+            default_row_num=4
         panel_row= cdstk.set_row_num(num_stickers)
         if panel_row > default_row_num:
             panel_row = default_row_num
@@ -87,12 +91,22 @@ if __name__ == "__main__":
         if ',' in dayspan:
             panel_col = int((panel_col+1)/2)
             
+        if default_row_num==1:
+            figwidth=10
+            figdepth=6
+            
         to_be_recycled=[]    
         
         #
         # sort names by up trading range in descending order
         # first sort by 20-day trading range (when >0.05)
         # then  sort by 60-day trading range (when >0.05)
+
+        if sort_brokerrecomm and "# Rating Strong Buy or Buy" in df:
+            df=df.sort_values(["# Rating Strong Buy or Buy"],ascending=False)
+        if sort_industry and "Industry" in df:
+            df=df.sort_values(["Industry"])
+            
         cut_forSort_20d = "0.05"
         cut_forSort_60d = "0.05" 
         if sort_trange:
@@ -140,10 +154,32 @@ if __name__ == "__main__":
             df=symbols
             df=df.sort_values(["close-50MA"],ascending=True)
             
-        if sort_brokerrecomm and "# Rating Strong Buy or Buy" in df:
-            df=df.sort_values(["# Rating Strong Buy or Buy"],ascending=False)
-        if sort_industry and "Industry" in df:
-            df=df.sort_values(["Industry"])
+        if "," in sort_sink:
+            symbols = df.copy(deep=True)
+            symbols["sink"]=pd.Series(0,index=symbols.index)
+            print (sort_sink)
+            print (sort_sink.split(','))
+            aa = sort_sink.split(',')
+            #print ( (int for d in sort_sink.split(',')) )
+            #dates=list(map(int, aa))
+            dates=[5,4]
+            date0=0-dates[0]
+            days=dates[1]
+            for symbol, row in symbols.iterrows():
+                ratio=1
+                price = dir+"/"+symbol+".txt"
+                if os.path.exists(price):
+                    dfPrice=pd.read_csv(price,sep="\t",index_col=0)
+                    price_date0 = dfPrice["4. close"][date0]
+                    price_examine=0
+                    for i in range(date0, date0+days, 1):
+                        price_examine += dfPrice["4. close"][i]
+                    ratio=(price_examine - price_date0*days)/price_date0
+                    symbols.loc[symbol,"sink"]=ratio
+            df=symbols
+            df=df.sort_values(["sink"],ascending=False)
+            
+
         #
         # read SPY data
         spy =  dir+"/"+"SPY"+".txt"
@@ -153,7 +189,7 @@ if __name__ == "__main__":
             mydf["close_shift1"] = mydf["4. close"].shift(periods=1)
             mydf["weather"]=(mydf["4. close"]-mydf["close_shift1"])/mydf["close_shift1"]
             ref=pd.DataFrame(mydf["weather"],index=mydf.index) 
-                
+
         #
         # plot multi-panel figure while going through a list of symbols
         for sticker, row in df.iterrows():
@@ -181,11 +217,20 @@ if __name__ == "__main__":
                     if myratio < cutoffBroker:
                         continue
                 if cutBrokerbuyCount>0:
-                	if row["# Rating Strong Buy or Buy"] < cutBrokerbuyCount:
-                		continue
+                    if row["# Rating Strong Buy or Buy"] < cutBrokerbuyCount:
+                        continue
             if "Long-Term Growth Consensus Est." in row:
                 note = note + "ltg{}".format(row["Long-Term Growth Consensus Est."])
             
+            # prepare annotation
+            antt = ""
+            if "P/E (Trailing 12 Months)" in row:
+                antt = antt + "pe" + str(row["P/E (Trailing 12 Months)"])
+            if "PEG Ratio" in row:
+                antt = antt + "peg" + str(row["PEG Ratio"])
+            if "Next EPS Report Date " in row:
+                antt = antt + "eday" + str(row["Next EPS Report Date "])
+
             # test existence of data for the given symbol
             price = dir+"/"+sticker+".txt"
             if os.path.exists(price):
@@ -232,6 +277,8 @@ if __name__ == "__main__":
                 df_filtered= df_filtered.append(row_copy,ignore_index=False)
                 
                 mysecurity = Security(df)
+                if antt:
+                    mysecurity.set_annotation(antt)
                 if "Date Added" in row:
                     date = row["Date Added"]
                     mysecurity.set_date_added(date)
@@ -241,6 +288,7 @@ if __name__ == "__main__":
                         mysecurity.set_date_sold(utility.fix_dateAdded(date))
                 if "Industry" in row:
                     mysecurity.set_industry(row["Industry"])
+                
                 securities[f"{sticker}: {note}"] = mysecurity
                 
             else:
@@ -250,16 +298,16 @@ if __name__ == "__main__":
             # accumulate in dict mydfs
             
             if len(securities) == panel_col * panel_row and (not filterOnly):
-                draw(file_name, securities, count, panel_row, panel_col, to_be_recycled, dayspan, gradient)
+                draw(file_name, securities, count, panel_row, panel_col, to_be_recycled, dayspan, gradient, figwidth, figdepth)
                 #print ("", end="\r", flush=True)
         # plot multi-panel figure for the remaining datasets
         if len(securities)>0 and (not filterOnly):
-            draw(file_name, securities, count, panel_row, panel_col, to_be_recycled, dayspan, gradient)
+            draw(file_name, securities, count, panel_row, panel_col, to_be_recycled, dayspan, gradient, figwidth, figdepth)
             #print ("", end="\r", flush=True)
         df_filtered.index.name="Symbol"
         
         if filterOnly:
-	        df_filtered.to_csv(file_name+".txt",sep="\t")
+            df_filtered.to_csv(file_name+".txt",sep="\t")
         
         """
         # plot "2 scale" while going through a list of dipped symbols
@@ -299,13 +347,15 @@ if __name__ == "__main__":
              to_be_recycled,
              dayspan=200,
              gradient=9,
+             figwidth=40,
+             figdepth=24,
              dualscale=False,
              drawbyrow=False):
         output = "xcandle."+ file_name +f"_{dayspan}d."+ str(count) +".pdf"
 
         recycle = cdstk.draw_many_candlesticks(securities, output,
                                            panel_row, panel_col,
-                                           40, 24,
+                                           figwidth, figdepth,
                                            dayspan, gradient,
                                            drawbyrow
                                            )
@@ -319,7 +369,7 @@ if __name__ == "__main__":
                         nargs='*',
                         help=": a list of symbol in TSV")
     parser.add_argument("-d", "--dir" , 
-                        default="/Users/air1/Watchlist/daliyPrice",
+                        default="/Users/air/watchlist/daliyPrice",
                         help=": a direcotry holding price data for symbols")
     parser.add_argument("-p","--period",
                         type=str, default="200",
@@ -327,6 +377,11 @@ if __name__ == "__main__":
     parser.add_argument("-g","--gradient",
                         type=int, default=1,
                         help=": size gradient of plot box")
+    parser.add_argument("-r","--rownumber",
+                        type=int, default=5,
+                        help=": size gradient of plot box")
+
+                        
     # FILTERING
     parser.add_argument("-cvg", "--vgm" ,
                         help=": set filter on for VGM",
@@ -356,6 +411,9 @@ if __name__ == "__main__":
     parser.add_argument("-sid", "--sort_industry",
                         help=": sort by industry",
                         action='store_true')
+    parser.add_argument("-ssk", "--sort_sink",
+                        help=": sort by ratio of price down relative to reference date",
+                        default="0")
                         
     parser.add_argument("-bld", "--blind",
                         type=int, default=0,
@@ -382,5 +440,6 @@ if __name__ == "__main__":
                                 args.cutBrokerbuyRatio,
                                 args.cutBrokerbuyCount,
                                 args.gradient,
+                                args.sort_sink,
                                 args.blind,
                                 args.filterOnly)

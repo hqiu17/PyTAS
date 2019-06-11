@@ -75,7 +75,7 @@ if __name__ == "__main__":
                         help=": a file containing a list of symbol")
     parser.add_argument("--key",  help=": a file containing the key")
     parser.add_argument("--dir" ,
-                        default="/Users/air1/Watchlist/daliyPrice",
+                        default="/Users/air/watchlist/daliyPrice",
                         help=": directory storing all downloaded price data (default='daliyPrice')")
         
 

@@ -261,11 +261,23 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
     # write within figure area
     y_position=0.08
     if annotation:
-        plt.gca().text(fig_xmin+fig_xmax*0.005,
-                   fig_ymax-(fig_ymax-fig_ymin)*y_position,
-                   annotation,
-                   fontsize=17, color='blue'
-                   )
+        mymatch=re.match("\S+peg([\.\d]+)eday.+", annotation)
+        peg=0
+        if mymatch:
+            peg=float(mymatch.group(1))
+        if peg>0 and peg <1.5:
+            plt.gca().text(fig_xmin+fig_xmax*0.005,
+                           fig_ymax-(fig_ymax-fig_ymin)*y_position,
+                           annotation,
+                           fontsize=17, color='red',
+                           bbox=dict(facecolor='yellow')
+                           )
+        else:
+            plt.gca().text(fig_xmin+fig_xmax*0.005,
+                       fig_ymax-(fig_ymax-fig_ymin)*y_position,
+                       annotation,
+                       fontsize=17, color='blue'
+                       )
         y_position += 0.08
     #
     # plot price drop compared to 30/120 days ago
@@ -382,6 +394,10 @@ def draw_many_candlesticks(securities,
 
     #!!! another way to reduce margin:
     #fig=plt.figure(); fig.tight_layout()
+    if num_row==1:
+        mymatch=re.match("(\S+)\:.+", ticker)
+        output=mymatch.group(1)
+        output=output+".pdf"
     plt.savefig(output, bbox_inches='tight')
 
     plt.close("all")
