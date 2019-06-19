@@ -248,15 +248,20 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
     
     #
     # plot figure title
-    plt.gca().text(
-                   fig_xmin+fig_xmax*0.005,
-                   fig_ymax, #+(fig_ymax-fig_ymin)*0.05,
+    if 'A/' in sticker or 'B/' in sticker:
+        plt.gca().text(
+                   fig_xmin+fig_xmax*0.005,fig_ymax,
                    sticker,
-                   fontsize=20,
-                   #fontproperties=font,
-                   color='blue'
+                   fontsize=20, color='blue',
+                   bbox=dict(facecolor='yellow',alpha=0.8)
                    )
-                   
+    else:
+        plt.gca().text(
+                   fig_xmin+fig_xmax*0.005,fig_ymax,
+                   sticker,
+                   fontsize=20, color='blue'
+                   )
+    
     #
     # write within figure area
     y_position=0.08
@@ -265,12 +270,14 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
         peg=0
         if mymatch:
             peg=float(mymatch.group(1))
-        if peg>0 and peg <1.5:
+        if peg>0 and peg <1.6:
+            if peg <1.5: alpha=0.8
+            else: alpha=0.6
             plt.gca().text(fig_xmin+fig_xmax*0.005,
                            fig_ymax-(fig_ymax-fig_ymin)*y_position,
                            annotation,
                            fontsize=17, color='red',
-                           bbox=dict(facecolor='yellow')
+                           bbox=dict(facecolor='yellow',alpha=alpha)
                            )
         else:
             plt.gca().text(fig_xmin+fig_xmax*0.005,

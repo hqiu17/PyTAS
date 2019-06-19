@@ -107,8 +107,8 @@ if __name__ == "__main__":
         if sort_industry and "Industry" in df:
             df=df.sort_values(["Industry"])
             
-        cut_forSort_20d = "0.05"
-        cut_forSort_60d = "0.05" 
+        cut_forSort_20d = 0.03
+        cut_forSort_60d = 0.05 
         if sort_trange:
             symbols = df.copy(deep=True)
             symbols.to_csv("test0.txt")
@@ -153,6 +153,9 @@ if __name__ == "__main__":
                     symbols.loc[symbol,"close-50MA"]=ratio
             df=symbols
             df=df.sort_values(["close-50MA"],ascending=True)
+            
+            for index, row in df.iterrows():
+                print (index + "\t" + str(row["close-50MA"]))
             
         if "," in sort_sink:
             symbols = df.copy(deep=True)
@@ -243,13 +246,14 @@ if __name__ == "__main__":
                 # pass if only 80% or more timepoints support uptrend
                 # otherwise skip this name
                 if abs(uptrend)>0:
+                    CUT_DAYS_FREQ=0.8
                     # skip new stocks with few days with price data
                     if len(df)-blind < abs(uptrend):
                         continue
                     # exame values of price and move averages
                     def ma_inorder(aday):
                         i = 0
-                        if (aday["50MA"]>=aday["200MA"]) and (aday["150MA"]>=aday["200MA"]):
+                        if aday["50MA"]>=aday["200MA"] and aday["150MA"]>=aday["200MA"]:  #
                                 if uptrend>0:
                                     i=1
                                 elif uptrend<0 and aday["4. close"] >= aday["50MA"]:
@@ -258,7 +262,7 @@ if __name__ == "__main__":
 
                     count_order=0
                     checkpoint= abs(int(uptrend/3))
-                    cutoff = 0.75
+                    #cutoff = CUT_DAYS_FREQ
                     retrospect = 0 - abs(uptrend)
                     recorded = 0 - len(df)
                     if recorded > retrospect:
@@ -268,7 +272,7 @@ if __name__ == "__main__":
                         day = df.iloc[index,:]
                         count_order += ma_inorder(day)
                         #print (sticker, str(index), str(ma_inorder(day)), sep="\t")
-                    if count_order < checkpoint*cutoff:              
+                    if count_order < checkpoint*CUT_DAYS_FREQ:      
                         continue
 
                     print (f"{sticker:<6}", f"{count_order}/{checkpoint}", sep="###")
