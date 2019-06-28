@@ -46,8 +46,9 @@ class Security:
         return self.annotation
                 
 def cstick_sma (df0):
-    df=df0.copy(deep=True)    
+    df=df0.copy(deep=True)
     df["50MA"] =df["4. close"].rolling(50).mean()
+    df["100MA"]=df["4. close"].rolling(100).mean()
     df["150MA"]=df["4. close"].rolling(150).mean()
     df["200MA"]=df["4. close"].rolling(200).mean()
     return df
@@ -204,6 +205,7 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
     # plot SMA
     if sample_size > 50:
         df["50MA"].plot()
+        df["100MA"].plot()
         df["150MA"].plot()
         df["200MA"].plot()
 
