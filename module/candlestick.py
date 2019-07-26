@@ -47,6 +47,7 @@ class Security:
                 
 def cstick_sma (df0):
     df=df0.copy(deep=True)
+    df["20MA"] =df["4. close"].rolling(20).mean()
     df["50MA"] =df["4. close"].rolling(50).mean()
     df["100MA"]=df["4. close"].rolling(100).mean()
     df["150MA"]=df["4. close"].rolling(150).mean()
@@ -168,8 +169,11 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
     plt.axhline(y=df.iloc[-1]["1. open"],color=color_closing,linewidth=0.2)
     plt.axhline(y=df.iloc[-1]["4. close"]  ,color=color_closing,linewidth=0.2)
 
+    plt.axhspan(df.iloc[-1]["1. open"],df.iloc[-1]["4. close"],color=color_closing, alpha=0.3)
+
     #
-    # plot vertical lines
+    # plot year by year vertical lines
+    """
     if sample_size > 480:
         plt.axvspan(df.index[-480],df.index[-241],color="grey", alpha=0.1)
     elif sample_size > 240:
@@ -178,14 +182,33 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
         plt.axvspan(df.index[-80],df.index[-60],color="grey", alpha=0.1)
     if sample_size > 40 and sample_size < 240:
         plt.axvspan(df.index[-40],df.index[-20],color="grey", alpha=0.1)
+    """
     
-    # plot 2018 dip
+    # plot 2018 dip / trade war
+    """
     index = date_to_index(pd.to_datetime("2018-12-26 00:00:00"), df['Date close'])
     dip_xcoordiante = df.index[index]
     plt.axvline(x=dip_xcoordiante,color="brown",dashes=[5,10],linewidth=1)
     index = date_to_index(pd.to_datetime("2018-10-4 00:00:00"), df['Date close'])
     dip_xcoordiante = df.index[index]
     plt.axvline(x=dip_xcoordiante,color="brown",dashes=[5,10],linewidth=1)
+
+    index = date_to_index(pd.to_datetime("2019-5-1 00:00:00"), df['Date close'])
+    dip_xcoordiante = df.index[index]
+    plt.axvline(x=dip_xcoordiante,color="brown",dashes=[5,10],linewidth=1)
+    index = date_to_index(pd.to_datetime("2019-6-3 00:00:00"), df['Date close'])
+    dip_xcoordiante = df.index[index]
+    plt.axvline(x=dip_xcoordiante,color="brown",dashes=[5,10],linewidth=1)
+    """
+    index1 = date_to_index(pd.to_datetime("2018-12-26 00:00:00"), df['Date close'])
+    index2 = date_to_index(pd.to_datetime("2018-10-4 00:00:00") , df['Date close'])
+    plt.axvspan(df.index[index1],df.index[index2],color="grey", alpha=0.1)
+    
+    # plot 2019 May dip / trade war
+    index1 = date_to_index(pd.to_datetime("2019-5-1 00:00:00"), df['Date close'])
+    index2 = date_to_index(pd.to_datetime("2019-6-3 00:00:00") , df['Date close'])
+    plt.axvspan(df.index[index1],df.index[index2],color="grey", alpha=0.1)
+    
     
     # plot specified dates
     if date_added:
@@ -204,6 +227,7 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
     #
     # plot SMA
     if sample_size > 50:
+        df["20MA"].plot()
         df["50MA"].plot()
         df["100MA"].plot()
         df["150MA"].plot()
@@ -221,11 +245,13 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
         if price_range <0.01:
             price_range=0.01
         
+        # plot day open and day close
         plt.bar(data["xcord"], body_range,  data["width"],   bottom=body_low,  color=data["color"] )
-        if sample_size < 500:
+        # plot day high and day low
+        if sample_size < 360:
             plt.bar(data["xcord"], price_range, data["width"]/5, bottom=price_low, color=data["color"] )
             
-        # plot market market benchmark data
+        # plot market benchmark data S&P500
         if sample_size < 200 and "weather" in df.columns:
             mchange = data["weather"]
             mycolor = "yellow"
@@ -250,11 +276,13 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
     
     #
     # plot figure title
-    if 'A/' in sticker or 'B/' in sticker:
+    if 'A/' in sticker or 'B/' in sticker or 'C/' in sticker or 'zr1' in sticker or 'zr2' in sticker:
+        color="blue"
+        if 'A/' in sticker or 'B/' in sticker or 'zr1' in sticker: color="red"
         plt.gca().text(
                    fig_xmin+fig_xmax*0.005,fig_ymax,
                    sticker,
-                   fontsize=20, color='blue',
+                   fontsize=20, color=color,
                    bbox=dict(facecolor='yellow',alpha=0.8)
                    )
     else:
@@ -270,15 +298,19 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
     if annotation:
         mymatch=re.match("\S+peg([\.\d]+)eday.+", annotation)
         peg=0
+        fontcolor='blue'
         if mymatch:
             peg=float(mymatch.group(1))
-        if peg>0 and peg <1.6:
-            if peg <1.5: alpha=0.8
-            else: alpha=0.6
+        if peg>0 and peg <2:
+            if peg <1.6: 
+                alpha=0.9
+                fontcolor='red'
+            else: 
+                alpha=0.5
             plt.gca().text(fig_xmin+fig_xmax*0.005,
                            fig_ymax-(fig_ymax-fig_ymin)*y_position,
                            annotation,
-                           fontsize=17, color='red',
+                           fontsize=17, color=fontcolor,
                            bbox=dict(facecolor='yellow',alpha=alpha)
                            )
         else:

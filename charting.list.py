@@ -136,7 +136,10 @@ if __name__ == "__main__":
             df=symbols
             df=df.sort_values(["up_tranding_range_20d","up_tranding_range_60d"],ascending=[False,False])
             df.to_csv(file_name+".txt")
-            
+        
+        """
+            sort symbols by 50SMA-distance
+        """ 
         if sort_madistance:
             symbols = df.copy(deep=True)
             symbols["close-50MA"]=pd.Series(0,index=symbols.index)
@@ -147,7 +150,8 @@ if __name__ == "__main__":
                     dfPrice=pd.read_csv(price,sep="\t",index_col=0)
                     dfPrice=cdstk.cstick_sma(dfPrice)
                     last_price = dfPrice["4. close"][-1]
-                    last_50MA  = dfPrice["50MA"][-1]
+                    ###@@@ distance to 20-day moving average  
+                    last_50MA  = dfPrice["20MA"][-1]
                     if last_50MA > 0:
                         ratio = (last_price-last_50MA)/last_50MA
                     symbols.loc[symbol,"close-50MA"]=ratio
@@ -156,7 +160,39 @@ if __name__ == "__main__":
             
             for index, row in df.iterrows():
                 print (index + "\t" + str(row["close-50MA"]))
-            
+      
+        """
+            sort symbols by the smallest distance to 50, 100, 1500 and 200 SMAs
+
+        if sort_madistance:
+            symbols = df.copy(deep=True)
+            symbols["minSMAdist"]=pd.Series(0,index=symbols.index)
+            for symbol, row in df.iterrows():
+                ratio=1
+                price = dir+"/"+symbol+".txt"
+                if os.path.exists(price):
+                    dfPrice=pd.read_csv(price,sep="\t",index_col=0)
+                    dfPrice=cdstk.cstick_sma(dfPrice)
+                    last_price = dfPrice["4. close"][-1]
+                    sma_distances=[]
+                    if dfPrice["50MA"][-1] > 0:
+                        distance = abs(last_price - dfPrice["50MA"][-1]) if dfPrice["20MA"][-1] > dfPrice["50MA"][-1] else 100000
+                        sma_distances.append( distance )
+                    if dfPrice["100MA"][-1] > 0:
+                        distance = abs(last_price - dfPrice["100MA"][-1]) if dfPrice["20MA"][-1] > dfPrice["100MA"][-1] else 100000
+                        sma_distances.append( distance )
+                    if dfPrice["150MA"][-1] > 0:
+                        distance = abs(last_price - dfPrice["150MA"][-1]) if dfPrice["20MA"][-1] > dfPrice["150MA"][-1] else 100000
+                        sma_distances.append( distance )
+                    if dfPrice["200MA"][-1] > 0:
+                        distance = abs(last_price - dfPrice["200MA"][-1]) if dfPrice["20MA"][-1] > dfPrice["200MA"][-1] else 100000
+                        sma_distances.append( distance )
+                    else:
+                        sma_distances.append( 100000 ) 
+                    symbols.loc[symbol,"minSMAdist"] = min(sma_distances)/last_price
+            df=symbols.sort_values(["minSMAdist"],ascending=True)
+        """        
+        
         if "," in sort_sink:
             symbols = df.copy(deep=True)
             symbols["sink"]=pd.Series(0,index=symbols.index)
