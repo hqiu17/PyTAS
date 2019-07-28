@@ -21,8 +21,8 @@ from matplotlib.font_manager import FontProperties
 if __name__ == "__main__":
 
     def draw_list_candlestick(file, vgm, uptrend, sort_trange, sort_madistance, sort_brokerrecomm,
-                              sort_industry, dayspan, dateAddedSort, cutoffBroker, cutBrokerbuyCount,
-                              gradient, sort_sink, blind, filterOnly):
+                              sort_industry, sort_performance, dayspan, dateAddedSort, cutoffBroker, cutBrokerbuyCount,
+                              gradient, sort_sink, blind, filterOnly, ):
         """
             draw candlestick for a list of sticker listed in a file
             the stick prices are stored in a directory
@@ -70,6 +70,8 @@ if __name__ == "__main__":
             file_name = file_name + ".sma"    # sort by distance to 50MA
         if sort_brokerrecomm:
             file_name = file_name + ".sbr"    # sort by broker recommendation ratio
+        if sort_performance>0:
+            file_name = file_name + ".spf" + str(int(sort_performance)) # sort by performance
         if sort_industry:
             file_name = file_name + ".sid"    # sort by industry
         if ',' in sort_sink:
@@ -161,6 +163,23 @@ if __name__ == "__main__":
             for index, row in df.iterrows():
                 print (index + "\t" + str(row["close-50MA"]))
       
+        if sort_performance >0:      
+            symbols = df.copy(deep=True)
+            symbols["performance"]=pd.Series(0,index=symbols.index)
+            for symbol, row in df.iterrows():
+                ratio=1
+                price = dir+"/"+symbol+".txt"
+                if os.path.exists(price):
+                    dfPrice=pd.read_csv(price,sep="\t",index_col=0)
+                    dfPrice=dfPrice.tail(sort_performance)
+                    symbols.loc[symbol,"performance"]=(dfPrice["4. close"][-1]-dfPrice["4. close"][0])/dfPrice["4. close"][0]
+            df=symbols
+            df=df.sort_values(["performance"],ascending=False)
+            
+            for index, row in df.iterrows():
+                print (index + "\t" + str(row["performance"]))
+      
+      
         """
             sort symbols by the smallest distance to 50, 100, 1500 and 200 SMAs
 
@@ -218,6 +237,7 @@ if __name__ == "__main__":
             df=symbols
             df=df.sort_values(["sink"],ascending=False)
             
+
 
         #
         # read SPY data
@@ -454,6 +474,10 @@ if __name__ == "__main__":
     parser.add_argument("-ssk", "--sort_sink",
                         help=": sort by ratio of price down relative to reference date",
                         default="0")
+    parser.add_argument("-spm", "--sort_performance",
+                        type=int, default=0,
+                        help=": sort by ratio of price down relative to reference date")
+
                         
     parser.add_argument("-bld", "--blind",
                         type=int, default=0,
@@ -475,6 +499,7 @@ if __name__ == "__main__":
                                 args.sort_madistance,
                                 args.sort_brokerrecomm,
                                 args.sort_industry,
+                                args.sort_performance,
                                 args.period,
                                 args.dateAdded,
                                 args.cutBrokerbuyRatio,
