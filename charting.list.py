@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 
 import module.candlestick as cdstk
 from module.candlestick import Security
+from module.stimeseries import stimeseries
 import module.utility as utility
 
 from matplotlib.font_manager import FontProperties
@@ -66,8 +67,8 @@ if __name__ == "__main__":
             file_name = file_name + ".cbc" + str(int(cutBrokerbuyCount)) 
         if sort_trange:
             file_name = file_name + ".str"    # sort by upside trading range
-        if sort_madistance:
-            file_name = file_name + ".sma"    # sort by distance to 50MA
+        if sort_madistance>0:
+            file_name = file_name + ".sma" + str(sort_madistance)   # sort by distance to 50MA
         if sort_brokerrecomm:
             file_name = file_name + ".sbr"    # sort by broker recommendation ratio
         if sort_performance>0:
@@ -108,7 +109,11 @@ if __name__ == "__main__":
             df=df.sort_values(["# Rating Strong Buy or Buy"],ascending=False)
         if sort_industry and "Industry" in df:
             df=df.sort_values(["Industry"])
-            
+
+        """
+            sort symbols by upside tranding range defined as the difference between last
+            close and the highest close in specified time range
+        """             
         cut_forSort_20d = 0.03
         cut_forSort_60d = 0.05 
         if sort_trange:
@@ -121,15 +126,12 @@ if __name__ == "__main__":
                 price = dir+"/"+symbol+".txt"
                 if os.path.exists(price):
                     dfPrice=pd.read_csv(price,sep="\t",index_col=0)
-                    prices = dfPrice["4. close"]
-                    price_max_20day = prices.tail(20).max()
-                    price_max_60day = prices.tail(60).max()
-                    price_latest = prices[-1]
-                    #print (price_max_20day, price_max_60day, price_latest)
-                    price_change_20d = (price_max_20day-price_latest)/price_max_20day
+                    sts = stimeseries(dfPrice)                    
+                    
+                    price_change_20d = sts.get_trading_uprange(20)
                     if price_change_20d < cut_forSort_20d:
                         price_change_20d = 0
-                    price_change_60d = (price_max_60day-price_latest)/price_max_60day
+                    price_change_60d = sts.get_trading_uprange(60)
                     if price_change_60d < cut_forSort_20d:
                         price_change_60d = 0
                         
@@ -140,9 +142,9 @@ if __name__ == "__main__":
             df.to_csv(file_name+".txt")
         
         """
-            sort symbols by 50SMA-distance
+            sort symbols by last close-to-SMA distance
         """ 
-        if sort_madistance:
+        if sort_madistance >0:
             symbols = df.copy(deep=True)
             symbols["close-50MA"]=pd.Series(0,index=symbols.index)
             for symbol, row in df.iterrows():
@@ -150,20 +152,16 @@ if __name__ == "__main__":
                 price = dir+"/"+symbol+".txt"
                 if os.path.exists(price):
                     dfPrice=pd.read_csv(price,sep="\t",index_col=0)
-                    dfPrice=cdstk.cstick_sma(dfPrice)
-                    last_price = dfPrice["4. close"][-1]
-                    ###@@@ distance to 20-day moving average  
-                    last_50MA  = dfPrice["20MA"][-1]
-                    if last_50MA > 0:
-                        ratio = (last_price-last_50MA)/last_50MA
-                    symbols.loc[symbol,"close-50MA"]=ratio
+                    sts = stimeseries(dfPrice)
+                    symbols.loc[symbol,"close-50MA"]=sts.get_SMAdistance(sort_madistance)
             df=symbols
             df=df.sort_values(["close-50MA"],ascending=True)
-            
-            for index, row in df.iterrows():
-                print (index + "\t" + str(row["close-50MA"]))
-      
-        if sort_performance >0:      
+
+
+        """
+            sort symbols by recent performance
+        """         
+        if sort_performance >0:
             symbols = df.copy(deep=True)
             symbols["performance"]=pd.Series(0,index=symbols.index)
             for symbol, row in df.iterrows():
@@ -171,14 +169,11 @@ if __name__ == "__main__":
                 price = dir+"/"+symbol+".txt"
                 if os.path.exists(price):
                     dfPrice=pd.read_csv(price,sep="\t",index_col=0)
-                    dfPrice=dfPrice.tail(sort_performance)
-                    symbols.loc[symbol,"performance"]=(dfPrice["4. close"][-1]-dfPrice["4. close"][0])/dfPrice["4. close"][0]
+                    sts = stimeseries(dfPrice)
+                    symbols.loc[symbol,"performance"] = sts.get_latest_performance(sort_performance)
             df=symbols
             df=df.sort_values(["performance"],ascending=False)
-            
-            for index, row in df.iterrows():
-                print (index + "\t" + str(row["performance"]))
-      
+
       
         """
             sort symbols by the smallest distance to 50, 100, 1500 and 200 SMAs
@@ -463,8 +458,8 @@ if __name__ == "__main__":
                         help=": sort by up trading range",
                         action='store_true')
     parser.add_argument("-smd", "--sort_madistance",
-                        help=": sort by up trading range",
-                        action='store_true')
+                        type=int, default=0,
+                        help=": sort by last close-to-SMA distance")
     parser.add_argument("-sbr", "--sort_brokerrecomm",
                         help=": sort by up trading range",
                         action='store_true')
