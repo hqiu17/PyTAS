@@ -1,4 +1,4 @@
-#!/Users/air/anaconda3/bin/python
+#!/usr/local/bin/python
 # put all downloaded price data into a common dir: daliyPrice
 #
 
@@ -85,7 +85,7 @@ if __name__ == "__main__":
                     datecode, weekday = get_filecreation_date(outfile)
                     # existing download is created on the same day
                     if (today_datecode-datecode) == 0:
-                        print (f"# {num:>3} {ticker:<6} was done [today download]")#, end="\r", flush=True)
+                        print (f"# {num:>3} {ticker:<6} was done [today download] {datecode}")#, end="\r", flush=True)
                     # on Saturday with existing download created on this friday
                     elif today_weekday == 5 and (today_datecode-datecode)==1:
                         print (f"# {num:>3} {ticker:<6} was done [friday download]")#, end="\r", flush=True)
