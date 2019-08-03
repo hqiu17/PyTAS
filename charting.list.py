@@ -1,4 +1,4 @@
-#! /Users/air/anaconda3/bin/python
+#!/usr/local/bin/python
 # cmp v1:  handle multiple datasets and plot multi-panel figure
 # cmp v20: given a list ticker and directory holding price data, do multi-panel
 #          candlestick plot
@@ -22,7 +22,7 @@ from matplotlib.font_manager import FontProperties
 if __name__ == "__main__":
 
     def draw_list_candlestick(file, vgm, uptrend, sort_trange, sort_madistance, sort_brokerrecomm,
-                              sort_industry, sort_performance, dayspan, dateAddedSort, cutoffBroker, cutBrokerbuyCount,
+                              sort_industry, sort_performance, edaySort, dayspan, dateAddedSort, cutoffBroker, cutBrokerbuyCount,
                               gradient, sort_sink, blind, filterOnly, ):
         """
             draw candlestick for a list of sticker listed in a file
@@ -64,7 +64,7 @@ if __name__ == "__main__":
         if cutoffBroker>0:
             file_name = file_name + ".cbr" + str(int(cutoffBroker*100))
         if cutBrokerbuyCount>0:
-            file_name = file_name + ".cbc" + str(int(cutBrokerbuyCount)) 
+            file_name = file_name + ".cbc" + str(int(cutBrokerbuyCount))
         if sort_trange:
             file_name = file_name + ".str"    # sort by upside trading range
         if sort_madistance>0:
@@ -76,7 +76,9 @@ if __name__ == "__main__":
         if sort_industry:
             file_name = file_name + ".sid"    # sort by industry
         if ',' in sort_sink:
-            file_name = file_name + ".ssk"    # sort by industry            
+            file_name = file_name + ".ssk"    # sort by industry
+        if edaySort:
+            file_name = file_name + ".sed"    # sort by industry
         
         securities={}
         count=1000
@@ -146,16 +148,16 @@ if __name__ == "__main__":
         """ 
         if sort_madistance >0:
             symbols = df.copy(deep=True)
-            symbols["close-50MA"]=pd.Series(0,index=symbols.index)
+            symbols["Sort"]=pd.Series(0,index=symbols.index)
             for symbol, row in df.iterrows():
                 ratio=1
                 price = dir+"/"+symbol+".txt"
                 if os.path.exists(price):
                     dfPrice=pd.read_csv(price,sep="\t",index_col=0)
                     sts = stimeseries(dfPrice)
-                    symbols.loc[symbol,"close-50MA"]=sts.get_SMAdistance(sort_madistance)
+                    symbols.loc[symbol,"Sort"]=sts.get_SMAdistance(sort_madistance)
             df=symbols
-            df=df.sort_values(["close-50MA"],ascending=True)
+            df=df.sort_values(["Sort"],ascending=True)
 
 
         """
@@ -174,7 +176,15 @@ if __name__ == "__main__":
             df=symbols
             df=df.sort_values(["performance"],ascending=False)
 
-      
+
+        """
+            sort symbols by last earning date
+        """ 
+        if edaySort and "Next EPS Report Date " in df:
+            df["Next EPS Report Date "]=pd.to_numeric(df["Next EPS Report Date "])
+            df=df.sort_values(["Next EPS Report Date "], ascending=True)
+
+              
         """
             sort symbols by the smallest distance to 50, 100, 1500 and 200 SMAs
 
@@ -343,7 +353,8 @@ if __name__ == "__main__":
                         mysecurity.set_date_sold(utility.fix_dateAdded(date))
                 if "Industry" in row:
                     mysecurity.set_industry(row["Industry"])
-                
+                if "Sort" in row:
+                    mysecurity.set_sortvalue(row["Sort"])
                 securities[f"{sticker}: {note}"] = mysecurity
                 
             else:
@@ -451,15 +462,15 @@ if __name__ == "__main__":
                         type=float, default=0,
                         help=": set cut-off for broker buy recommendation count")
     # SORT
-    parser.add_argument("-da","--dateAdded",
+    parser.add_argument("-sda","--sort_dateAdded",
                         help=": sort by date added",
+                        action='store_true')
+    parser.add_argument("-sed","--sort_earningDate",
+                        help=": sort by next earning report date",
                         action='store_true')
     parser.add_argument("-str", "--sort_trange",
                         help=": sort by up trading range",
                         action='store_true')
-    parser.add_argument("-smd", "--sort_madistance",
-                        type=int, default=0,
-                        help=": sort by last close-to-SMA distance")
     parser.add_argument("-sbr", "--sort_brokerrecomm",
                         help=": sort by up trading range",
                         action='store_true')
@@ -472,8 +483,9 @@ if __name__ == "__main__":
     parser.add_argument("-spm", "--sort_performance",
                         type=int, default=0,
                         help=": sort by ratio of price down relative to reference date")
-
-                        
+    parser.add_argument("-smd", "--sort_madistance",
+                        type=int, default=0,
+                        help=": sort by last close-to-SMA distance")
     parser.add_argument("-bld", "--blind",
                         type=int, default=0,
                         help=": ignore the latest preriod (for hypothesis test)")
@@ -495,8 +507,9 @@ if __name__ == "__main__":
                                 args.sort_brokerrecomm,
                                 args.sort_industry,
                                 args.sort_performance,
+                                args.sort_earningDate,
                                 args.period,
-                                args.dateAdded,
+                                args.sort_dateAdded,
                                 args.cutBrokerbuyRatio,
                                 args.cutBrokerbuyCount,
                                 args.gradient,

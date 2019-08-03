@@ -20,6 +20,7 @@ class Security:
         self.date_sold=""
         self.industry=""
         self.annotation=""
+        self.sortvalue=""
     def set_date_added(self, date):
         self.date_added=date
     def set_date_sold(self, date):
@@ -30,7 +31,8 @@ class Security:
         self.industry=industry
     def set_annotation(self, annotation):
         self.annotation=annotation
-	
+    def set_sortvalue(self, sortvalue):
+        self.sortvalue=sortvalue
                 
     def get_price(self):
         return self.df.copy(deep=True) 
@@ -44,7 +46,9 @@ class Security:
         return self.industry
     def get_annotation(self):
         return self.annotation
-                
+    def get_sortvalue(self):
+        return self.sortvalue
+                        
 def cstick_sma (df0):
     df=df0.copy(deep=True)
     df["20MA"] =df["4. close"].rolling(20).mean()
@@ -135,7 +139,8 @@ def date_to_index(date, series):
 def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3, 
                        date_added="", date_sold="",
                        industry="",
-                       annotation=""):
+                       annotation="",
+                       sort=""):
     redraw = 0
     df = df0.copy(deep=True)
     # figure out the maximum/minimum of x/y axis
@@ -331,6 +336,15 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
                    f"v{bleedout_1mon}{bleedout_3mon}^{growth_alltime}",
                    fontsize=17, color='blue'
                    )
+    y_position += 0.08
+    
+    if sort:                   
+        plt.gca().text(
+                    fig_xmin+fig_xmax*0.005,
+                    fig_ymax-(fig_ymax-fig_ymin)*y_position,
+                    f"Sort{sort}",
+                    fontsize=17, color="black"
+                    )
 
     if industry:
         plt.gca().text(
@@ -412,7 +426,8 @@ def draw_many_candlesticks(securities,
                                     mysecurity.get_date_added(),
                                     mysecurity.get_date_sold(),
                                     mysecurity.get_industry(),
-                                    mysecurity.get_annotation()
+                                    mysecurity.get_annotation(),
+                                    mysecurity.get_sortvalue()
                                     )
         
         if (redraw):
