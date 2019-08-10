@@ -215,6 +215,11 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
     plt.axvspan(df.index[index1],df.index[index2],color="grey", alpha=0.1)
     
     
+    # plot 2019 May dip / trade war
+    index1 = date_to_index(pd.to_datetime("2019-7-31 00:00:00"), df['Date close'])
+    index2 = date_to_index(pd.to_datetime("2019-8-5 00:00:00") , df['Date close'])
+    plt.axvspan(df.index[index1],df.index[index2],color="grey", alpha=0.1)
+        
     # plot specified dates
     if date_added:
         index = date_to_index(date_added, df['Date close'])
@@ -338,12 +343,18 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
                    )
     y_position += 0.08
     
-    if sort:                   
+    if sort:
+        color="black"
+        facecolor="white"
+        if sort < 0:
+            color="white"
+            facecolor="gray"
         plt.gca().text(
                     fig_xmin+fig_xmax*0.005,
                     fig_ymax-(fig_ymax-fig_ymin)*y_position,
-                    f"Sort{sort}",
-                    fontsize=17, color="black"
+                    f"Sort{str(sort)[:5]}",
+                    fontsize=17, color=color,
+                    bbox=dict(facecolor=facecolor)
                     )
 
     if industry:
