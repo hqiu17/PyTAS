@@ -349,10 +349,11 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
         if sort < 0:
             color="white"
             facecolor="gray"
+        sort = sort * 100
         plt.gca().text(
                     fig_xmin+fig_xmax*0.005,
                     fig_ymax-(fig_ymax-fig_ymin)*y_position,
-                    f"Sort{str(sort)[:5]}",
+                    f"Sort {str(sort)[:5]}" + '%',
                     fontsize=17, color=color,
                     bbox=dict(facecolor=facecolor)
                     )

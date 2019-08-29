@@ -19,10 +19,13 @@ import module.utility as utility
 
 from matplotlib.font_manager import FontProperties
 
+
+
+
 if __name__ == "__main__":
 
     def draw_list_candlestick(file, vgm, uptrend, sort_trange, sort_madistance, sort_brokerrecomm,
-                              sort_industry, sort_performance, edaySort, dayspan, dateAddedSort, cutoffBroker, cutBrokerbuyCount,
+                              sort_industry, sort_performance, edaySort, dayspan, dateAddedSort, filter_madistance, cutoffBroker, cutBrokerbuyCount,
                               gradient, sort_sink, blind, filterOnly, ):
         """
             draw candlestick for a list of sticker listed in a file
@@ -74,11 +77,13 @@ if __name__ == "__main__":
         if sort_performance>0:
             file_name = file_name + ".spf" + str(int(sort_performance)) # sort by performance
         if sort_industry:
-            file_name = file_name + ".sid"    # sort by industry
+            file_name = file_name + ".sid"    # 
         if ',' in sort_sink:
-            file_name = file_name + ".ssk"    # sort by industry
+            file_name = file_name + ".ssk"    # 
         if edaySort:
-            file_name = file_name + ".sed"    # sort by industry
+            file_name = file_name + ".sed"    # 
+        if filter_madistance>0:
+            file_name = file_name + ".fma" + str(filter_madistance)    #
         
         securities={}
         count=1000
@@ -145,7 +150,7 @@ if __name__ == "__main__":
         
         """
             sort symbols by last close-to-SMA distance
-        """ 
+        """
         if sort_madistance >0:
             symbols = df.copy(deep=True)
             symbols["Sort"]=pd.Series(0,index=symbols.index)
@@ -158,7 +163,6 @@ if __name__ == "__main__":
                     symbols.loc[symbol,"Sort"]=sts.get_SMAdistance(sort_madistance)
             df=symbols
             df=df.sort_values(["Sort"],ascending=True)
-
 
         """
             sort symbols by recent performance
@@ -176,7 +180,6 @@ if __name__ == "__main__":
             df=symbols
             df=df.sort_values(["performance"],ascending=False)
 
-
         """
             sort symbols by last earning date
         """ 
@@ -184,39 +187,51 @@ if __name__ == "__main__":
             df["Next EPS Report Date "]=pd.to_numeric(df["Next EPS Report Date "])
             df=df.sort_values(["Next EPS Report Date "], ascending=True)
 
-              
         """
-            sort symbols by the smallest distance to 50, 100, 1500 and 200 SMAs
+            filter for symbols in uptrend in a specified recent period
+            symbol list will be shortened
+        """        
+        if abs(uptrend):
+            symbols = pd.DataFrame(columns=df.columns)
+            for symbol, row in df.iterrows():
+                price = dir+"/"+symbol+".txt"
+                if os.path.exists(price):
+                    dfPrice=pd.read_csv(price,sep="\t",index_col=0)
+                    dfPrice=cdstk.cstick_sma(dfPrice)
+                    sts = stimeseries(dfPrice)
+                    if sts.in_uptrend(uptrend):
+                        symbols = symbols.append(df.loc[symbol], ignore_index=False)
+            df=symbols
 
-        if sort_madistance:
-            symbols = df.copy(deep=True)
-            symbols["minSMAdist"]=pd.Series(0,index=symbols.index)
+        """
+            filter for symbols with yesterday's price greater than moving average and then sorted by
+            today's distance to moving average
+            symbol list will be shortened
+        """        
+        if filter_madistance >0:
+            symbols = pd.DataFrame(columns=df.columns)
             for symbol, row in df.iterrows():
                 ratio=1
                 price = dir+"/"+symbol+".txt"
                 if os.path.exists(price):
                     dfPrice=pd.read_csv(price,sep="\t",index_col=0)
-                    dfPrice=cdstk.cstick_sma(dfPrice)
-                    last_price = dfPrice["4. close"][-1]
-                    sma_distances=[]
-                    if dfPrice["50MA"][-1] > 0:
-                        distance = abs(last_price - dfPrice["50MA"][-1]) if dfPrice["20MA"][-1] > dfPrice["50MA"][-1] else 100000
-                        sma_distances.append( distance )
-                    if dfPrice["100MA"][-1] > 0:
-                        distance = abs(last_price - dfPrice["100MA"][-1]) if dfPrice["20MA"][-1] > dfPrice["100MA"][-1] else 100000
-                        sma_distances.append( distance )
-                    if dfPrice["150MA"][-1] > 0:
-                        distance = abs(last_price - dfPrice["150MA"][-1]) if dfPrice["20MA"][-1] > dfPrice["150MA"][-1] else 100000
-                        sma_distances.append( distance )
-                    if dfPrice["200MA"][-1] > 0:
-                        distance = abs(last_price - dfPrice["200MA"][-1]) if dfPrice["20MA"][-1] > dfPrice["200MA"][-1] else 100000
-                        sma_distances.append( distance )
-                    else:
-                        sma_distances.append( 100000 ) 
-                    symbols.loc[symbol,"minSMAdist"] = min(sma_distances)/last_price
-            df=symbols.sort_values(["minSMAdist"],ascending=True)
-        """        
-        
+                    sts = stimeseries(dfPrice)
+                    dist_day_before2 = sts.get_SMAdistance(filter_madistance, -2)
+                    dist_day_before3 = sts.get_SMAdistance(filter_madistance, -3)
+                    if dist_day_before2 > 0 and dist_day_before3 >0:
+                        series = df.loc[symbol].copy(deep=True)
+                        series['Sort'] = sts.get_SMAdistance(filter_madistance, -1)
+                        symbols = symbols.append(series, ignore_index=False)
+            df=symbols
+            df=df.sort_values(["Sort"],ascending=True)
+
+              
+        """
+            sort symbols by price change relative to a reference date
+            example: input information [5, 4]
+            set the fifth last day as reference, compare the average price of the 
+            following 4 day and report the price change
+        """
         if "," in sort_sink:
             symbols = df.copy(deep=True)
             symbols["sink"]=pd.Series(0,index=symbols.index)
@@ -225,22 +240,26 @@ if __name__ == "__main__":
             aa = sort_sink.split(',')
             #print ( (int for d in sort_sink.split(',')) )
             #dates=list(map(int, aa))
-            dates=[5,4]
+            dates=[2,1]
             date0=0-dates[0]
-            days=dates[1]
-            for symbol, row in symbols.iterrows():
+            daysforcompare=len(dates)
+            for symbol, row in symbols.iterrows(): 
                 ratio=1
                 price = dir+"/"+symbol+".txt"
                 if os.path.exists(price):
                     dfPrice=pd.read_csv(price,sep="\t",index_col=0)
                     price_date0 = dfPrice["4. close"][date0]
                     price_examine=0
-                    for i in range(date0, date0+days, 1):
+                    for i in range(date0+1, date0+daysforcompare, 1):
+                        ## try
+                        
                         price_examine += dfPrice["4. close"][i]
-                    ratio=(price_examine - price_date0*days)/price_date0
-                    symbols.loc[symbol,"sink"]=ratio
+                    ratio=(price_examine - price_date0*(daysforcompare-1))/price_date0
+                    symbols.loc[symbol,"Sort"]=ratio
             df=symbols
-            df=df.sort_values(["sink"],ascending=False)
+            df=df.sort_values(["Sort"],ascending=False)
+            
+            for s in df["Sort"]: print(s)
             
 
 
@@ -259,6 +278,7 @@ if __name__ == "__main__":
         for sticker, row in df.iterrows():
             row_copy = row.copy(deep=True)
             count+=1
+            
             # prepare figure header
             note = ""
             # prepare head note for display in chart
@@ -302,41 +322,7 @@ if __name__ == "__main__":
                 if len(ref)>30:
                     df = df.join(ref)
                 df = cdstk.cstick_sma(df)
-                  
-                # exame 30 timepoint in specified trading day period
-                # pass if only 80% or more timepoints support uptrend
-                # otherwise skip this name
-                if abs(uptrend)>0:
-                    CUT_DAYS_FREQ=0.8
-                    # skip new stocks with few days with price data
-                    if len(df)-blind < abs(uptrend):
-                        continue
-                    # exame values of price and move averages
-                    def ma_inorder(aday):
-                        i = 0
-                        if aday["50MA"]>=aday["200MA"] and aday["150MA"]>=aday["200MA"]:  #
-                                if uptrend>0:
-                                    i=1
-                                elif uptrend<0 and aday["4. close"] >= aday["50MA"]:
-                                    i=1
-                        return i
-
-                    count_order=0
-                    checkpoint= abs(int(uptrend/3))
-                    #cutoff = CUT_DAYS_FREQ
-                    retrospect = 0 - abs(uptrend)
-                    recorded = 0 - len(df)
-                    if recorded > retrospect:
-                        retrospect = recorded
-                        
-                    for index in range(-1-blind, retrospect-blind, int(retrospect/checkpoint)):
-                        day = df.iloc[index,:]
-                        count_order += ma_inorder(day)
-                        #print (sticker, str(index), str(ma_inorder(day)), sep="\t")
-                    if count_order < checkpoint*CUT_DAYS_FREQ:      
-                        continue
-
-                    print (f"{sticker:<6}", f"{count_order}/{checkpoint}", sep="###")
+                
                 
                 # load the name and annotations to a dictionary
                 df_filtered= df_filtered.append(row_copy,ignore_index=False)
@@ -417,7 +403,7 @@ if __name__ == "__main__":
              figdepth=24,
              dualscale=False,
              drawbyrow=False):
-        output = "xcandle."+ file_name +f"_{dayspan}d."+ str(count) +".pdf"
+        output = "zxplot."+ file_name +f"_{dayspan}d."+ str(count) +".pdf"
 
         recycle = cdstk.draw_many_candlesticks(securities, output,
                                            panel_row, panel_col,
@@ -461,6 +447,10 @@ if __name__ == "__main__":
     parser.add_argument("-cbc", "--cutBrokerbuyCount",
                         type=float, default=0,
                         help=": set cut-off for broker buy recommendation count")
+    parser.add_argument("-fmd", "--filter_madistance",
+                        type=int, default=0,
+                        help=": filter for price dipping to moving average")
+                        
     # SORT
     parser.add_argument("-sda","--sort_dateAdded",
                         help=": sort by date added",
@@ -510,6 +500,7 @@ if __name__ == "__main__":
                                 args.sort_earningDate,
                                 args.period,
                                 args.sort_dateAdded,
+                                args.filter_madistance,
                                 args.cutBrokerbuyRatio,
                                 args.cutBrokerbuyCount,
                                 args.gradient,
