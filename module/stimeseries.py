@@ -1,3 +1,4 @@
+import numpy as np
 
 class stimeseries:
     def __init__(self, df):
@@ -40,7 +41,6 @@ class stimeseries:
         prices = df["4. close"].tail(day)
         return (prices.max()-prices[-1])/prices.max()
         
-
     def in_uptrend(self, days, interval=3, cutoff=0.75, blind=0):
         status=False
         df = self.df
@@ -81,6 +81,17 @@ class stimeseries:
             status=True
         return status
 
+    def macd_cross_up(self, sspan=12, lspan=16):
+        df=self.df.copy(deep=True)
+        exp1 = df['4. close'].ewm(span=sspan, adjust=False).mean()
+        exp2 = df['4. close'].ewm(span=lspan, adjust=False).mean()
+        macd = exp1 - exp2
+        exp3 = macd.ewm(span=9, adjust=False).mean()
+        df["signal"] = macd - exp3
 
+        #print (df["signal"][-3:])
+        df["signal"] = np.where( df["signal"] >0, 1, 0)
+        #print (df["signal"][-3:])
+        return df["signal"].diff()[-1]
         
             

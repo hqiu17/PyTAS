@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     def draw_list_candlestick(file, vgm, uptrend, sort_trange, sort_madistance, sort_brokerrecomm,
                               sort_industry, sort_performance, edaySort, dayspan, dateAddedSort, filter_madistance, cutoffBroker, cutBrokerbuyCount,
-                              gradient, sort_sink, blind, filterOnly, ):
+                              gradient, sort_sink, blind, filterOnly, filter_macd_sig):
         """
             draw candlestick for a list of sticker listed in a file
             the stick prices are stored in a directory
@@ -57,34 +57,37 @@ if __name__ == "__main__":
         print (f"#-> {num_stickers} names in ", end="")
         
         file_name = cdstk.file_strip_txt(file)
-        print (file_name)
-        if vgm:
-            file_name = file_name + ".cvg"
-        if blind>0:
-            file_name = file_name + ".bld" + str(blind)
-        if abs(uptrend)>0:
-            file_name = file_name + ".cup" + str(uptrend)
-        if cutoffBroker>0:
-            file_name = file_name + ".cbr" + str(int(cutoffBroker*100))
-        if cutBrokerbuyCount>0:
-            file_name = file_name + ".cbc" + str(int(cutBrokerbuyCount))
-        if sort_trange:
-            file_name = file_name + ".str"    # sort by upside trading range
-        if sort_madistance>0:
-            file_name = file_name + ".sma" + str(sort_madistance)   # sort by distance to 50MA
-        if sort_brokerrecomm:
-            file_name = file_name + ".sbr"    # sort by broker recommendation ratio
-        if sort_performance>0:
-            file_name = file_name + ".spf" + str(int(sort_performance)) # sort by performance
-        if sort_industry:
-            file_name = file_name + ".sid"    # 
-        if ',' in sort_sink:
-            file_name = file_name + ".ssk"    # 
-        if edaySort:
-            file_name = file_name + ".sed"    # 
-        if filter_madistance>0:
-            file_name = file_name + ".fma" + str(filter_madistance)    #
-        
+        if file_name:
+            print (file_name)
+            if vgm:
+                file_name = file_name + ".cvg"
+            if blind>0:
+                file_name = file_name + ".bld" + str(blind)
+            if abs(uptrend)>0:
+                file_name = file_name + ".cup" + str(uptrend)
+            if cutoffBroker>0:
+                file_name = file_name + ".cbr" + str(int(cutoffBroker*100))
+            if cutBrokerbuyCount>0:
+                file_name = file_name + ".cbc" + str(int(cutBrokerbuyCount))
+            if sort_trange:
+                file_name = file_name + ".str"    # sort by upside trading range
+            if sort_madistance>0:
+                file_name = file_name + ".sma" + str(sort_madistance)   # sort by distance to 50MA
+            if sort_brokerrecomm:
+                file_name = file_name + ".sbr"    # sort by broker recommendation ratio
+            if sort_performance>0:
+                file_name = file_name + ".spf" + str(int(sort_performance)) # sort by performance
+            if sort_industry:
+                file_name = file_name + ".sid"    # 
+            if ',' in sort_sink:
+                file_name = file_name + ".ssk"    # 
+            if edaySort:
+                file_name = file_name + ".sed"    # 
+            if filter_madistance>0:
+                file_name = file_name + ".fma" + str(filter_madistance)    #
+            if filter_macd_sig:
+                file_name = file_name + ".macd"
+                
         securities={}
         count=1000
         
@@ -107,15 +110,29 @@ if __name__ == "__main__":
             
         to_be_recycled=[]    
         
-        #
-        # sort names by up trading range in descending order
-        # first sort by 20-day trading range (when >0.05)
-        # then  sort by 60-day trading range (when >0.05)
+
 
         if sort_brokerrecomm and "# Rating Strong Buy or Buy" in df:
             df=df.sort_values(["# Rating Strong Buy or Buy"],ascending=False)
         if sort_industry and "Industry" in df:
             df=df.sort_values(["Industry"])
+            
+        if filter_macd_sig:
+            symbols = df.copy(deep=True)
+            symbols["Sort"]=pd.Series(0,index=symbols.index)
+            for symbol, row in df.iterrows():
+                ratio=1
+                price = dir+"/"+symbol+".txt"
+                if os.path.exists(price):
+                    dfPrice=pd.read_csv(price,sep="\t",index_col=0)
+                    dfPrice=dfPrice.tail(1000)
+                    sts = stimeseries(dfPrice)
+                    symbols.loc[symbol,"Sort"]=sts.macd_cross_up()
+
+            symbols=symbols.sort_values(["Sort"],ascending=False)
+            symbols=symbols.loc[ symbols['Sort'] != 0 ]
+            df=symbols
+            #print (df["Sort"])
 
         """
             sort symbols by upside tranding range defined as the difference between last
@@ -159,6 +176,7 @@ if __name__ == "__main__":
                 price = dir+"/"+symbol+".txt"
                 if os.path.exists(price):
                     dfPrice=pd.read_csv(price,sep="\t",index_col=0)
+                    dfPrice=dfPrice.tail(1000)
                     sts = stimeseries(dfPrice)
                     symbols.loc[symbol,"Sort"]=sts.get_SMAdistance(sort_madistance)
             df=symbols
@@ -175,6 +193,7 @@ if __name__ == "__main__":
                 price = dir+"/"+symbol+".txt"
                 if os.path.exists(price):
                     dfPrice=pd.read_csv(price,sep="\t",index_col=0)
+                    dfPrice=dfPrice.tail(1000)
                     sts = stimeseries(dfPrice)
                     symbols.loc[symbol,"performance"] = sts.get_latest_performance(sort_performance)
             df=symbols
@@ -197,6 +216,7 @@ if __name__ == "__main__":
                 price = dir+"/"+symbol+".txt"
                 if os.path.exists(price):
                     dfPrice=pd.read_csv(price,sep="\t",index_col=0)
+                    dfPrice=dfPrice.tail(1000)
                     dfPrice=cdstk.cstick_sma(dfPrice)
                     sts = stimeseries(dfPrice)
                     if sts.in_uptrend(uptrend):
@@ -215,6 +235,7 @@ if __name__ == "__main__":
                 price = dir+"/"+symbol+".txt"
                 if os.path.exists(price):
                     dfPrice=pd.read_csv(price,sep="\t",index_col=0)
+                    dfPrice=dfPrice.tail(1000)
                     sts = stimeseries(dfPrice)
                     dist_day_before2 = sts.get_SMAdistance(filter_madistance, -2)
                     dist_day_before3 = sts.get_SMAdistance(filter_madistance, -3)
@@ -248,6 +269,7 @@ if __name__ == "__main__":
                 price = dir+"/"+symbol+".txt"
                 if os.path.exists(price):
                     dfPrice=pd.read_csv(price,sep="\t",index_col=0)
+                    dfPrice=dfPrice.tail(1000)
                     price_date0 = dfPrice["4. close"][date0]
                     price_examine=0
                     for i in range(date0+1, date0+daysforcompare, 1):
@@ -261,6 +283,7 @@ if __name__ == "__main__":
             
             for s in df["Sort"]: print(s)
             
+
 
 
         #
@@ -319,6 +342,7 @@ if __name__ == "__main__":
             price = dir+"/"+sticker+".txt"
             if os.path.exists(price):
                 df=pd.read_csv(price,sep="\t",index_col=0)
+                df=df.tail(1000)
                 if len(ref)>30:
                     df = df.join(ref)
                 df = cdstk.cstick_sma(df)
@@ -450,6 +474,9 @@ if __name__ == "__main__":
     parser.add_argument("-fmd", "--filter_madistance",
                         type=int, default=0,
                         help=": filter for price dipping to moving average")
+    parser.add_argument("-macd", "--filter_macd_sig",
+                        action='store_true',
+                        help=": filter for macd crossover upward")                    
                         
     # SORT
     parser.add_argument("-sda","--sort_dateAdded",
@@ -506,4 +533,5 @@ if __name__ == "__main__":
                                 args.gradient,
                                 args.sort_sink,
                                 args.blind,
-                                args.filterOnly)
+                                args.filterOnly,
+                                args.filter_macd_sig)
