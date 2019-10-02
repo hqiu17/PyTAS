@@ -86,7 +86,7 @@ if __name__ == "__main__":
             if filter_madistance>0:
                 file_name = file_name + ".fma" + str(filter_madistance)    #
             if filter_macd_sig:
-                file_name = file_name + ".macd"
+                file_name = file_name + ".macd" + filter_macd_sig.replace(',','-')
                 
         securities={}
         count=1000
@@ -118,6 +118,15 @@ if __name__ == "__main__":
             df=df.sort_values(["Industry"])
             
         if filter_macd_sig:
+            mymatch = re.match("(\d+),(\d+)", filter_macd_sig)
+            sspan = 0
+            lspan = 0
+            if mymatch:
+                sspan = int(mymatch.group(1))
+                lspan = int(mymatch.group(2))
+            else:
+                print ("macd input is invalide")
+                sys.exit(1)
             symbols = df.copy(deep=True)
             symbols["Sort"]=pd.Series(0,index=symbols.index)
             for symbol, row in df.iterrows():
@@ -127,10 +136,10 @@ if __name__ == "__main__":
                     dfPrice=pd.read_csv(price,sep="\t",index_col=0)
                     dfPrice=dfPrice.tail(1000)
                     sts = stimeseries(dfPrice)
-                    symbols.loc[symbol,"Sort"]=sts.macd_cross_up()
+                    symbols.loc[symbol,"Sort"]=sts.macd_cross_up(sspan, lspan)
 
             symbols=symbols.sort_values(["Sort"],ascending=False)
-            symbols=symbols.loc[ symbols['Sort'] != 0 ]
+            symbols=symbols.loc[ symbols['Sort'] > 0 ]
             df=symbols
             #print (df["Sort"])
 
@@ -427,7 +436,7 @@ if __name__ == "__main__":
              figdepth=24,
              dualscale=False,
              drawbyrow=False):
-        output = "zxplot."+ file_name +f"_{dayspan}d."+ str(count) +".pdf"
+        output = "zxplot."+ file_name +f".{dayspan}d."+ str(count) +".pdf"
 
         recycle = cdstk.draw_many_candlesticks(securities, output,
                                            panel_row, panel_col,
@@ -475,7 +484,7 @@ if __name__ == "__main__":
                         type=int, default=0,
                         help=": filter for price dipping to moving average")
     parser.add_argument("-macd", "--filter_macd_sig",
-                        action='store_true',
+                        type=str, default="",
                         help=": filter for macd crossover upward")                    
                         
     # SORT

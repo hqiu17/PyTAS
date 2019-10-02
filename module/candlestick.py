@@ -158,14 +158,13 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
     plt.xlim(fig_xmin, fig_xmax)
     plt.ylim(fig_ymin, fig_ymax)
 
-    # redraw
-    #
+    # release redraw signal if dramatic price change present in
+    # the data
     fold_change = fig_ymax/df["4. close"].iloc[-1]
     if (fold_change > foldchange_cutoff):
         redraw=1
 
-    #
-    # plot last day's low and close
+    # draw horizontal lines for last day's low and close
     color_closing="black"
     if   df.iloc[-1]["4. close"]>df.iloc[-1]["1. open"]:
         color_closing="green"
@@ -176,7 +175,6 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
 
     plt.axhspan(df.iloc[-1]["1. open"],df.iloc[-1]["4. close"],color=color_closing, alpha=0.3)
 
-    #
     # plot year by year vertical lines
     """
     if sample_size > 480:
@@ -234,7 +232,6 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
         #close_onbefore_zacks = df.iloc[index]['4. close']
         #plt.axhline(y=close_onbefore_zacks,color="black",dashes=[5,10],linewidth=0.3)
 
-    #
     # plot SMA
     if sample_size > 50:
         df["20MA"].plot()
@@ -243,8 +240,8 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
         df["150MA"].plot()
         df["200MA"].plot()
 
-    #
-    # plot candlesticks
+
+    # plot candlesticks (core data)
     for num, data in df.iterrows():
         price_low = data["3. low"]
         price_range = data["2. high"]-data["3. low"]
@@ -343,6 +340,7 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
                    )
     y_position += 0.08
     
+    # print sort value if available
     if sort:
         color="black"
         facecolor="white"
@@ -357,7 +355,7 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
                     fontsize=17, color=color,
                     bbox=dict(facecolor=facecolor)
                     )
-
+    # print industry information if available
     if industry:
         plt.gca().text(
                         fig_xmin+fig_xmax*0.005,
