@@ -85,6 +85,16 @@ def pick_V_G_VGM(series):
             i = True
     return i
 
+"""
+def scale(list, max, min):
+    data_max=""
+    data_min=""
+        for array in list:
+            max = array.max()
+            min = array.min()
+            if max > data_max: data_max = max
+            if min < data_min: data_min = min
+"""    
 
 if __name__ == "__main__":
 
