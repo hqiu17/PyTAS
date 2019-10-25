@@ -81,7 +81,7 @@ class stimeseries:
             status=True
         return status
 
-    def macd_cross_up(self, sspan=12, lspan=16):
+    def macd_cross_up(self, sspan=12, lspan=26):
         df=self.df.copy(deep=True)
         exp1 = df['4. close'].ewm(span=sspan, adjust=False).mean()
         exp2 = df['4. close'].ewm(span=lspan, adjust=False).mean()
