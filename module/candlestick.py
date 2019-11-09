@@ -205,18 +205,22 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
     """
     index1 = date_to_index(pd.to_datetime("2018-12-26 00:00:00"), df['Date close'])
     index2 = date_to_index(pd.to_datetime("2018-10-4 00:00:00") , df['Date close'])
-    plt.axvspan(df.index[index1],df.index[index2],color="grey", alpha=0.1)
+    plt.axvspan(df.index[index1],df.index[index2],color="orange", alpha=0.1)
     
     # plot 2019 May dip / trade war
     index1 = date_to_index(pd.to_datetime("2019-5-1 00:00:00"), df['Date close'])
     index2 = date_to_index(pd.to_datetime("2019-6-3 00:00:00") , df['Date close'])
-    plt.axvspan(df.index[index1],df.index[index2],color="grey", alpha=0.1)
+    plt.axvspan(df.index[index1],df.index[index2],color="orange", alpha=0.1)
     
     
-    # plot 2019 May dip / trade war
+    # plot 2019 July dip / trade war
     index1 = date_to_index(pd.to_datetime("2019-7-31 00:00:00"), df['Date close'])
-    index2 = date_to_index(pd.to_datetime("2019-8-5 00:00:00") , df['Date close'])
-    plt.axvspan(df.index[index1],df.index[index2],color="grey", alpha=0.1)
+    index2 = date_to_index(pd.to_datetime("2019-8-27") , df['Date close'])
+    plt.axvspan(df.index[index1],df.index[index2],color="orange", alpha=0.1)
+    # plot 2019 July dip / trade war
+    index1 = date_to_index(pd.to_datetime("2019-9-20"), df['Date close'])
+    index2 = date_to_index(pd.to_datetime("2019-10-8"), df['Date close'])
+    plt.axvspan(df.index[index1],df.index[index2],color="orange", alpha=0.1)
         
     # plot specified dates
     if date_added:

@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     def draw_list_candlestick(file, vgm, uptrend, sort_trange, sort_madistance, sort_brokerrecomm,
                               sort_industry, sort_performance, edaySort, dayspan, dateAddedSort, filter_madistance, cutoffBroker, cutBrokerbuyCount,
-                              gradient, sort_sink, blind, filterOnly, filter_macd_sig):
+                              gradient, sort_sink, blind, filterOnly, filter_macd_sig, filter_stochastic_sig, price_cross_sma ):
         """
             draw candlestick for a list of sticker listed in a file
             the stick prices are stored in a directory
@@ -87,6 +87,10 @@ if __name__ == "__main__":
                 file_name = file_name + ".fma" + str(filter_madistance)    #
             if filter_macd_sig:
                 file_name = file_name + ".macd" + filter_macd_sig.replace(',','-')
+            if filter_stochastic_sig:
+                file_name = file_name + ".stks" + filter_stochastic_sig.replace(',','-')
+            if price_cross_sma:
+                file_name = file_name + ".pcma" + str(price_cross_sma)
                 
         securities={}
         count=1000
@@ -134,7 +138,7 @@ if __name__ == "__main__":
                 price = dir+"/"+symbol+".txt"
                 if os.path.exists(price):
                     dfPrice=pd.read_csv(price,sep="\t",index_col=0)
-                    dfPrice=dfPrice.tail(1000)
+                    dfPrice=dfPrice.tail(500)
                     sts = stimeseries(dfPrice)
                     symbols.loc[symbol,"Sort"]=sts.macd_cross_up(sspan, lspan)
 
@@ -142,7 +146,55 @@ if __name__ == "__main__":
             symbols=symbols.loc[ symbols['Sort'] > 0 ]
             df=symbols
             #print (df["Sort"])
+            
+        if filter_stochastic_sig:
+            mymatch = re.match("(\d+),(\d+)", filter_stochastic_sig)
+            n = 0
+            m = 0
+            if mymatch:
+                n = int(mymatch.group(1))
+                m = int(mymatch.group(2))
+            else:
+                print ("stochastic input is invalide")
+                sys.exit(1)
+            symbols = df.copy(deep=True)
+            symbols["STOK"]=pd.Series(100,index=symbols.index)
+            symbols["STOD"]=pd.Series(100,index=symbols.index)
+            symbols["STOC"]=pd.Series(0,index=symbols.index)
+            for symbol, row in df.iterrows():
+                price = dir+"/"+symbol+".txt"
+                if os.path.exists(price):
+                    dfPrice=pd.read_csv(price,sep="\t",index_col=0)
+                    dfPrice=dfPrice.tail(500)
+                    sts = stimeseries(dfPrice)
+                    
+                    symbols.loc[symbol,"STOK"], symbols.loc[symbol,"STOD"], symbols.loc[symbol,"STOC"] = sts.stochastic_cross(n, m)
 
+            symbols=symbols.loc[ symbols['STOK'] < 40 ]
+            symbols=symbols.loc[ symbols['STOD'] < 20 ]
+            #symbols=symbols.loc[ symbols['STOC'] > 0  ]
+            symbols=symbols.loc[ symbols['STOD'] < symbols['STOK'] ]
+            df = symbols
+            print ("#  ", df.shape[0], "symbols meet stochastic criteria")
+            
+        if price_cross_sma:
+            price_cross_sma = int(price_cross_sma)
+            symbols = df.copy(deep=True)
+            symbols["sPCS"]=pd.Series(0,index=symbols.index)
+            for symbol, row in df.iterrows():
+                price = dir+"/"+symbol+".txt"
+                if os.path.exists(price):
+                    dfPrice=pd.read_csv(price,sep="\t",index_col=0)
+                    dfPrice=dfPrice.tail(500)
+                    dfPrice=cdstk.cstick_sma(dfPrice)
+                    sts = stimeseries(dfPrice)
+                    if dfPrice["20MA"][-1] < dfPrice["50MA"][-1] and dfPrice["50MA"][-1] < dfPrice["150MA"][-1]:
+                        symbols.loc[symbol,"sPCS"] = sts.price_cross_sma(price_cross_sma)
+                    
+            symbols=symbols.loc[ symbols['sPCS'] > 0 ]
+            df = symbols
+            print ("#  ", df.shape[0], f"symbols is cross up {price_cross_sma}SMA")
+            
         """
             sort symbols by upside tranding range defined as the difference between last
             close and the highest close in specified time range
@@ -485,7 +537,13 @@ if __name__ == "__main__":
                         help=": filter for price dipping to moving average")
     parser.add_argument("-macd", "--filter_macd_sig",
                         type=str, default="",
-                        help=": filter for macd crossover upward")                    
+                        help=": filter for macd crossover upward")                 
+    parser.add_argument("-stks", "--filter_stochastic_sig",
+                        type=str, default="",
+                        help=": filter for macd crossover upward")
+    parser.add_argument("-pcma", "--price_cross_sma",
+                        type=str, default="",
+                        help=": filter for price cross SMA upward")
                         
     # SORT
     parser.add_argument("-sda","--sort_dateAdded",
@@ -543,4 +601,6 @@ if __name__ == "__main__":
                                 args.sort_sink,
                                 args.blind,
                                 args.filterOnly,
-                                args.filter_macd_sig)
+                                args.filter_macd_sig,
+                                args.filter_stochastic_sig,
+                                args.price_cross_sma)

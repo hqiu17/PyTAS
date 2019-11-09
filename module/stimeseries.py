@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 class stimeseries:
     def __init__(self, df):
@@ -94,4 +95,31 @@ class stimeseries:
         #print (df["signal"][-3:])
         return df["signal"].diff()[-1]
         
-            
+    def stochastic_cross(self, n, m):
+        df=self.df.copy(deep=True)
+        high = df['2. high']
+        low  = df['3. low']
+        close= df['4. close']
+        STOK = ( (close - low.rolling(n).min())/( high.rolling(n).max()-low.rolling(n).min() ) ) * 100
+        STOD = STOK.rolling(m).mean()
+        sgnl = STOK - STOD
+        df["signal"] = np.where( sgnl>0, 1, 0)
+        
+        #print ("# ", STOK[-1], STOD[-1], df["signal"].diff()[-1])
+        return STOK[-1], STOD[-1], df["signal"].diff()[-1]
+    
+    def price_cross_sma(self, period):
+        df=self.df.copy(deep=True)
+        df["05MA"] =df["4. close"].ewm(span=3,adjust=False).mean()
+        df["20MA"] =df["4. close"].rolling(period).mean()
+        sgnl = df["05MA"] - df["20MA"]
+        df["sgnlPCS"] =np.where( sgnl>0, 1, 0)
+        return df["sgnlPCS"].diff()[-1]
+
+    def sma_multiple(self):
+        self.df["20MA"] =self.df["4. close"].rolling(20).mean()
+        self.df["50MA"] =self.df["4. close"].rolling(50).mean()
+        self.df["100MA"]=self.df["4. close"].rolling(100).mean()
+        self.df["150MA"]=self.df["4. close"].rolling(150).mean()
+        self.df["200MA"]=self.df["4. close"].rolling(200).mean()
+
