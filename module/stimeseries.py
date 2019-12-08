@@ -106,7 +106,7 @@ class stimeseries:
         df["signal"] = np.where( sgnl>0, 1, 0)
         
         #print ("# ", STOK[-1], STOD[-1], df["signal"].diff()[-1])
-        return STOK[-1], STOD[-1], df["signal"].diff()[-1]
+        return STOK, STOD, df
     
     def price_cross_sma(self, period):
         df=self.df.copy(deep=True)

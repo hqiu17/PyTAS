@@ -7,6 +7,7 @@
 import os
 import re
 import sys
+import copy
 import argparse
 import pandas as pd
 import numpy as np
@@ -403,7 +404,7 @@ if __name__ == "__main__":
             price = dir+"/"+sticker+".txt"
             if os.path.exists(price):
                 df=pd.read_csv(price,sep="\t",index_col=0)
-                df=df.tail(1000)
+                df=df.tail(700)
                 if len(ref)>30:
                     df = df.join(ref)
                 df = cdstk.cstick_sma(df)
@@ -426,13 +427,40 @@ if __name__ == "__main__":
                     mysecurity.set_industry(row["Industry"])
                 if "Sort" in row:
                     mysecurity.set_sortvalue(row["Sort"])
+                    
                 securities[f"{sticker}: {note}"] = mysecurity
-                
+
+                """
+                #############################################################################
+                sts = stimeseries(df)
+                stok, stod, stos = sts.stochastic_cross(14, 3)
+                for i in range(0, stos.shape[0]):
+                    if stos["signal"].diff()[i] > 0 and stod[i]<20:
+                        observe_date = stos.index[i]
+                        print (sticker, observe_date, stod[i])
+                        sta = i -210
+                        end = i +29
+                        if sta >= 0 and end <=stos.shape[0]:
+                            sliced = df.iloc[sta:end]
+                            print (sliced.shape)
+                            thisecurity = copy.deepcopy(mysecurity)
+                            thisecurity = Security(sliced)
+                            thisecurity.set_date_added(observe_date)
+                            securities[f"{sticker}_{observe_date}"] = thisecurity
+                            count += 1
+                            
+                            if len(securities) == panel_col * panel_row and (not filterOnly):
+                                draw(file_name, securities, count, panel_row, panel_col, to_be_recycled, dayspan, gradient, figwidth, figdepth)
+
+                #############################################################################
+                """
             else:
                 print (price, " doesn't exist")
                 df_filtered= df_filtered.append(row_copy,ignore_index=False)                
             # plot multi-panel figure once sufficient datasets
             # accumulate in dict mydfs
+            
+
             
             if len(securities) == panel_col * panel_row and (not filterOnly):
                 draw(file_name, securities, count, panel_row, panel_col, to_be_recycled, dayspan, gradient, figwidth, figdepth)

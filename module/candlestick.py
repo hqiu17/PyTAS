@@ -56,6 +56,9 @@ def cstick_sma (df0):
     df["100MA"]=df["4. close"].rolling(100).mean()
     df["150MA"]=df["4. close"].rolling(150).mean()
     df["200MA"]=df["4. close"].rolling(200).mean()
+    df['STD20']=df["4. close"].rolling(20).std()
+    df['BB20u']=df['20MA'] + df['STD20'] *2
+    df['BB20d']=df['20MA'] - df['STD20'] *2
     return df
 
 def cstick_width_gradient (df0, ratio=10):
@@ -136,7 +139,7 @@ def date_to_index(date, series):
     return index_zacks    
     return date_close.index[index_zacks]
 
-def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3, 
+def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3, 
                        date_added="", date_sold="",
                        industry="",
                        annotation="",
@@ -238,12 +241,21 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
 
     # plot SMA
     if sample_size > 50:
+        #df[["20MA","50MA","100MA", "150MA","200MA"]].plot()
         df["20MA"].plot()
         df["50MA"].plot()
         df["100MA"].plot()
         df["150MA"].plot()
         df["200MA"].plot()
-
+        df['BB20u'].plot(color='#1f77b4')
+        df['BB20d'].plot(color='#1f77b4')
+        plt.fill_between(df.index, df['BB20u'], df['BB20d'], color='#1f77b4', alpha=0.2)
+        """ pandas plot's default color
+            >>> prop_cycle = plt.rcParams['axes.prop_cycle']
+            >>> prop_cycle.by_key()['color']
+            ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
+             '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+        """
 
     # plot candlesticks (core data)
     for num, data in df.iterrows():
@@ -436,7 +448,7 @@ def draw_many_candlesticks(securities,
 
         #df=cstick_sma(df)
         df=cstick_width_gradient( df.tail(dayspan), widthgradient )
-        redraw = draw_a_candlestick(df, ticker, 3, 
+        redraw = draw_a_candlestick(ax, df, ticker, 3, 
                                     mysecurity.get_date_added(),
                                     mysecurity.get_date_sold(),
                                     mysecurity.get_industry(),
