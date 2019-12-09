@@ -51,14 +51,23 @@ class Security:
                         
 def cstick_sma (df0):
     df=df0.copy(deep=True)
-    df["20MA"] =df["4. close"].rolling(20).mean()
+
+    ma_days = [20, 50, 100, 150, 200]
+    for days in ma_days:
+        #simple moving average
+        #df[str(days)+'MA'] = df["4. close"].rolling(days).mean()
+        df[str(days)+'MA'] = df["4. close"].ewm(span=days,adjust=False).mean()
+    """
     df["50MA"] =df["4. close"].rolling(50).mean()
     df["100MA"]=df["4. close"].rolling(100).mean()
     df["150MA"]=df["4. close"].rolling(150).mean()
     df["200MA"]=df["4. close"].rolling(200).mean()
+    """
+    df["20SMA"]=df["4. close"].rolling(20).mean()
     df['STD20']=df["4. close"].rolling(20).std()
-    df['BB20u']=df['20MA'] + df['STD20'] *2
-    df['BB20d']=df['20MA'] - df['STD20'] *2
+    df['BB20u']=df['20SMA'] + df['STD20'] *2
+    df['BB20d']=df['20SMA'] - df['STD20'] *2
+
     return df
 
 def cstick_width_gradient (df0, ratio=10):
@@ -247,7 +256,7 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
         df["100MA"].plot()
         df["150MA"].plot()
         #df["200MA"].plot()
-        if sample_size <= 100:
+        if sample_size <= 120:
             df['BB20u'].plot(color='#1f77b4')
             df['BB20d'].plot(color='#1f77b4')
             plt.fill_between(df.index, df['BB20u'], df['BB20d'], color='blue', alpha=0.05)
@@ -260,7 +269,7 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
 
 
     # plot candlesticks (core data)
-    if df.shape[0] >15 and df.shape[0] <=100:
+    if df.shape[0] >15 and df.shape[0] <=120:
         df_recent = df.tail(15)
         for num, data in df_recent.iterrows():
             price_low = data["3. low"]

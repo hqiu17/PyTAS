@@ -66,8 +66,9 @@ if __name__ == "__main__":
         fh=open(list, "r")
         for num, line in enumerate(fh):
             # remove header
-            mymatch = re.match (r'Symbol.*', line)
-            if mymatch: continue
+            if line.startswith('Symbol'): continue            
+            if line.startswith('Ticker'): continue
+            
             #
             ticker=""
             mymatch = re.match(r'(\S+)\s.*', line)
@@ -148,15 +149,11 @@ if __name__ == "__main__":
     stay = False
     stay = args.stay
 
-    print (refresh, stay)
-
     symbol_collection = "names.allinone"
 
     today_datecode = get_datecode(datetime.today())
     today_weekday  = datetime.today().weekday()
-    print(datetime.today())
-    print(today_datecode, today_weekday)
-
+    print(str(today_weekday+1), datetime.today())
 
     for list in args.list:
         download_alist(list)

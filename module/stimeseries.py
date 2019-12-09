@@ -33,7 +33,7 @@ class stimeseries:
     def get_BBdistance(self):
         self.sma_multiple()
         df=self.df.copy(deep=True)
-        ratio = (df["4. close"][-1] - df["BB20d"][-1])/ ( df["BB20u"][-1] - df["BB20d"][-1])
+        ratio = (df["3. low"][-1] - df["BB20d"][-1])/ ( df["BB20u"][-1] - df["BB20d"][-1])
         #print ( (df["4. close"][-1] - df["BB20d"][-1]), (df["4. close"][-1] - df["20MA"][-1]), ratio )
         return ratio
         
@@ -110,59 +110,78 @@ class stimeseries:
             #print(tail)
         return status
         
-    def stochastic_cross(self, n, m):
+    def stochastic_cross_internal(self, n, m):
         df=self.df.copy(deep=True)
         high = df['2. high']
         low  = df['3. low']
         close= df['4. close']
         STOK = ( (close - low.rolling(n).min())/( high.rolling(n).max()-low.rolling(n).min() ) ) * 100
         STOD = STOK.rolling(m).mean()
-        sgnl = STOK - STOD
+#        sgnl = STOK - STOD
+        sgnl = STOK - 18
         df["signal"] = np.where( sgnl>0, 1, 0)        
-        paction = (df['2. high'] - df['4. close']) / ( df['2. high'] - df['3. low'])
-                    
-        return STOK[-1], STOD[-1], df["signal"].diff()[-1], paction[-1]
+        paction = (df['2. high'] - df['4. close']) / ( df['2. high'] - df['3. low']) 
+        return STOK, STOD, df["signal"].diff(), paction
+        
+    def stochastic_cross(self, n, m):
+        stok, stod, signal, paction = self.stochastic_cross_internal(n, m)
+        return stok[-1], stod[-1], signal[-1], paction[-1]
     
     def two_dragon_internal(self, MAdays1, MAdays2, TRNDdays, dataframe, cutoff=0.8):
+        """ Test uptrend defined by 2 moving average indicators (internal version).
+            In the defined period 'TRNDdays', if 80% of datapoint has moving average1
+            greater than moving average2, return status(=1). 
+        """
         status = 0
-        df=dataframe.copy(deep=True)
-        # if price data is small, return zero
-        if (MAdays2 + 100) > df.shape[0]: return status
-        if (TRNDdays + 100) > df.shape[0]: return status
-                
-        df['ma01'] =df["4. close"].ewm(span=MAdays1,adjust=False).mean()
-        df['ma02'] =df["4. close"].ewm(span=MAdays2,adjust=False).mean()
+        df=dataframe.copy(deep=True)        
+        ma1_key = str(MAdays1)+"MA"
+        ma2_key = str(MAdays2)+"MA"
+        
+        if ma1_key in df.columns and ma2_key in df.columns:
+            df['ma01'] = df[ma1_key]
+            df['ma02'] = df[ma2_key]
+        elif ( (TRNDdays+MAdays1)>df.shape[0] or (TRNDdays+MAdays2)>df.shape[0] ): 
+            #print (f"Moving-avg {MAdays1} vs. {MAdays2} and window {TRNDdays} cannot be estimated for small data with {df.shape[0]} rows")
+            return status
+        else:
+            df['ma01'] =df["4. close"].ewm(span=MAdays1,adjust=False).mean()
+            df['ma02'] =df["4. close"].ewm(span=MAdays2,adjust=False).mean()
+                        
         sgnl = df["ma01"] - df["ma02"]
         df["signal"] =np.where( sgnl>0, 1, 0)
         
         ratio = df.tail(TRNDdays)['signal'].sum()/TRNDdays
-        if ratio > cutoff:
-            status = 1
-
+        if ratio > cutoff: status = 1
         return status
         
     def two_dragon(self, MAdays1, MAdays2, TRNDdays, cutoff=0.8):
-        status = two_dragon_internal(self, MAdays1, MAdays2, TRNDdays, self.df, cutoff=0.8)
+        """ Test uptrend defined by 2 moving average indicators (internal version).
+            In the defined period 'TRNDdays', if 80% of datapoint has moving average1
+            greater than moving average2, return status(=1). 
+        """
+        status = self.two_dragon_internal(MAdays1, MAdays2, TRNDdays, self.df, cutoff)
         return status
         
-    def in_uptrend(self, TRNDdays, cutoff=0.8, blind=0):
-        df = pd.DataFrame()
-        if blind > 0 and blind < self.df.shape[0]:
-            last_index = self.df.shape[0] - blind
-            df = self.df[0:last_index]
-        else:
-            df = self.df.copy(deep=True)
-            
+    def in_uptrend_internal(self, dataframe, TRNDdays, cutoff, blind):
         status = 0
+        if blind > 0 :
+            if blind < dataframe.shape[0]:
+                last_index = dataframe.shape[0] - blind
+                df = dataframe[0:last_index]
+            else:
+                return status
+
+        df = dataframe.copy(deep=True)
         count  = 0
         count += self.two_dragon_internal( 20, 50,TRNDdays, df, cutoff)
         count += self.two_dragon_internal( 50,100,TRNDdays, df, cutoff)
         count += self.two_dragon_internal(100,150,TRNDdays, df, cutoff)
-        
         if count == 3: status = 1
         return status
-
-
+        
+    def in_uptrend(self, TRNDdays, cutoff=0.8, blind=0):
+        return self.in_uptrend_internal(self.df, TRNDdays, cutoff, blind)
+    
     def sma_multiple(self):
         self.df["20MA"] =self.df["4. close"].rolling(20).mean()
         self.df["50MA"] =self.df["4. close"].rolling(50).mean()
@@ -186,3 +205,39 @@ class stimeseries:
         self.to_weekly()
         dataframe = self.df.copy(deep=True)
         return dataframe
+
+    def sampling_stks_bb(self, n, m):
+        stok, stod, signal, paction = self.stochastic_cross_internal(n, m)
+        samples={}
+        sts=self.df.copy(deep=True)
+        bb_dist_low   = (sts["3. low"]  -sts['BB20d'])/(sts['BB20u']-sts['BB20d'])
+        bb_dist_close = (sts["4. close"]-sts['BB20d'])/(sts['BB20u']-sts['BB20d'])
+        length = len(signal)
+        for i in range(100, length-15):
+            #print (signal[200])
+            #if stod[i]<20 and signal[i]==1 and paction[i]<0.3 and bb_dist<0.05:
+            
+            # stochastic
+            if stod[i] > 20   : continue
+            if signal[i]<=0   : continue
+            # candle pattern
+            if paction[i]>0.3 : continue
+            if max(sts['4. close'][i-1],sts['1. open'][i-1]) > sts['4. close'][i] : continue
+            # no transation
+            if sts['2. high'][i] > sts['2. high'][i+1]  : continue
+
+            """
+            sts['20MA'][i]>sts['50MA'][i] and
+            sts['50MA'][i]>sts['100MA'][i] and
+            sts['100MA'][i]>sts['150MA'][i] and
+            sts['150MA'][i]>sts['200MA'][i] and
+            """
+            #print (signal[i], stok.index[i], bb_dist_low[i], bb_dist_low[i-1],bb_dist_close[i])
+
+            if (bb_dist_low[i]<0.02 or bb_dist_low[i-1]<0 or bb_dist_low[i-2]<0)and bb_dist_close[i] <0.33:
+                sub = sts.iloc[i-100:i+13]
+                if self.in_uptrend_internal(sub, 60, 0.8, 0)==0: continue
+                date= "{}".format(stok.index[i]).rstrip('00:00:00')
+                samples[date]=sub
+
+        return samples

@@ -62,8 +62,16 @@ if __name__ == "__main__":
     # merge the list of dataframes and export to output file
     df = df_add_newframes(dataframes)
     df = df.set_index("Ticker")
-    if "Growth Score" in df:
+    if "Growth Score" in df and "Value Score" in df:
+        df["Growth Score"].replace('0','X',inplace=True)
+        df["Value Score"].replace('0','X',inplace=True)
+        df = df.sort_values(["Growth Score","Value Score"], ascending=True )
+    elif "Growth Score" in df:
+        df["Growth Score"].replace('0','X',inplace=True)
         df = df.sort_values(["Growth Score"], ascending=True )
+    elif "Value Score" in df:
+        df["Value Score"].replace('0','X',inplace=True)
+        df = df.sort_values(["Value Score"], ascending=True )
 
     df = df.fillna(0)
     df.to_csv(output,sep="\t")

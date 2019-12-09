@@ -82,6 +82,15 @@ if __name__ == "__main__":
     for query in args.queries:
         df = pd.DataFrame()
         df = get_qry_data(query, data, retain_all)
-        if "Growth Score" in df:
+        if "Growth Score" in df and "Value Score" in df:
+            df["Growth Score"].replace('0','X',inplace=True)
+            df["Value Score"].replace('0','X',inplace=True)
+            df = df.sort_values(["Growth Score","Value Score"], ascending=True )
+        elif "Growth Score" in df:
+            df["Growth Score"].replace('0','X',inplace=True)
             df = df.sort_values(["Growth Score"], ascending=True )
+        elif "Value Score" in df:
+            df["Value Score"].replace('0','X',inplace=True)
+            df = df.sort_values(["Value Score"], ascending=True )
+
         df.to_csv(query+".txt", sep="\t")
