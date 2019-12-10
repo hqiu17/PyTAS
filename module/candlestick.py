@@ -51,14 +51,24 @@ class Security:
                         
 def cstick_sma (df0):
     df=df0.copy(deep=True)
-    df["20MA"] =df["4. close"].rolling(20).mean()
+
+    ma_days = [20, 50, 100, 150, 200]
+    for days in ma_days:
+        #simple moving average
+        #df[str(days)+'MA'] = df["4. close"].rolling(days).mean()
+        df[str(days)+'MA'] = df["4. close"].ewm(span=days,adjust=False).mean()
+    """
     df["50MA"] =df["4. close"].rolling(50).mean()
     df["100MA"]=df["4. close"].rolling(100).mean()
     df["150MA"]=df["4. close"].rolling(150).mean()
     df["200MA"]=df["4. close"].rolling(200).mean()
+    """
+    
+    df["20SMA"]=df["4. close"].rolling(20).mean()
     df['STD20']=df["4. close"].rolling(20).std()
-    df['BB20u']=df['20MA'] + df['STD20'] *2
-    df['BB20d']=df['20MA'] - df['STD20'] *2
+    df['BB20u']=df['20SMA'] + df['STD20'] *2
+    df['BB20d']=df['20SMA'] - df['STD20'] *2
+
     return df
 
 def cstick_width_gradient (df0, ratio=10):
@@ -241,53 +251,56 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
 
     # plot SMA
     if sample_size > 50:
-        #df[["20MA","50MA","100MA", "150MA","200MA"]].plot()
+        df["4. close"].plot( color='black')    
         df["20MA"].plot()
         df["50MA"].plot()
         df["100MA"].plot()
         df["150MA"].plot()
-        df["200MA"].plot()
-        df['BB20u'].plot(color='#1f77b4')
-        df['BB20d'].plot(color='#1f77b4')
-        plt.fill_between(df.index, df['BB20u'], df['BB20d'], color='#1f77b4', alpha=0.2)
-        """ pandas plot's default color
-            >>> prop_cycle = plt.rcParams['axes.prop_cycle']
-            >>> prop_cycle.by_key()['color']
-            ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
-             '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
-        """
+
+        if sample_size <= 120:
+            df['BB20u'].plot(color='#1f77b4')
+            df['BB20d'].plot(color='#1f77b4')
+            plt.fill_between(df.index, df['BB20u'], df['BB20d'], color='blue', alpha=0.05)
+            """ pandas plot's default color
+                >>> prop_cycle = plt.rcParams['axes.prop_cycle']
+                >>> prop_cycle.by_key()['color']
+                ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
+                 '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+            """
 
     # plot candlesticks (core data)
-    for num, data in df.iterrows():
-        price_low = data["3. low"]
-        price_range = data["2. high"]-data["3. low"]
-        body_low = np.minimum(data["1. open"], data["4. close"])
-        body_range = abs( (data["1. open"] - data["4. close"]) )
-        if body_range <0.01:
-            body_range=0.01
-        if price_range <0.01:
-            price_range=0.01
+    if df.shape[0] >15 and df.shape[0] <=120:
+        df_recent = df.tail(15)
+        for num, data in df_recent.iterrows():
+            price_low = data["3. low"]
+            price_range = data["2. high"]-data["3. low"]
+            body_low = np.minimum(data["1. open"], data["4. close"])
+            body_range = abs( (data["1. open"] - data["4. close"]) )
+            if body_range <0.01:
+                body_range=0.01
+            if price_range <0.01:
+                price_range=0.01
         
-        # plot day open and day close
-        plt.bar(data["xcord"], body_range,  data["width"],   bottom=body_low,  color=data["color"] )
-        # plot day high and day low
-        if sample_size < 360:
-            plt.bar(data["xcord"], price_range, data["width"]/5, bottom=price_low, color=data["color"] )
+            # plot day open and day close
+            plt.bar(data["xcord"], body_range,  data["width"],   bottom=body_low,  color=data["color"] )
+            # plot day high and day low
+            if sample_size < 360:
+                plt.bar(data["xcord"], price_range, data["width"]/5, bottom=price_low, color=data["color"] )
             
-        # plot market benchmark data S&P500
-        if sample_size < 200 and "weather" in df.columns:
-            mchange = data["weather"]
-            mycolor = "yellow"
-            if mchange>0:
-                mycolor="green"
-                height = (fig_ymax-fig_ymin)*mchange*50  # 50X change percentage, 2% hit ceiling 
-                plt.bar(data["xcord"], height, data["width"], bottom=fig_ymin, color=mycolor, alpha=0.2 )
-            elif mchange<0:
-                mycolor="red"
-                height = (fig_ymax-fig_ymin)*(0-mchange)*50 # 50X change percentage, -2% touch ground
-                plt.bar(data["xcord"], height, data["width"], bottom=fig_ymax-height, color=mycolor, alpha=0.2 )
-            #plt.bar(data["xcord"], (fig_ymax-fig_ymin)*0.05, data["width"], bottom=fig_ymin+(fig_ymax-fig_ymin)*0.95, color=mycolor )            
-            #plt.bar(data["xcord"], (fig_ymax-fig_ymin), data["width"], bottom=fig_ymin, color=mycolor, alpha=0.2 )
+            # plot market benchmark data S&P500
+            if sample_size < 200 and "weather" in df.columns:
+                mchange = data["weather"]
+                mycolor = "yellow"
+                if mchange>0:
+                    mycolor="green"
+                    height = (fig_ymax-fig_ymin)*mchange*50  # 50X change percentage, 2% hit ceiling 
+                    plt.bar(data["xcord"], height, data["width"], bottom=fig_ymin, color=mycolor, alpha=0.2 )
+                elif mchange<0:
+                    mycolor="red"
+                    height = (fig_ymax-fig_ymin)*(0-mchange)*50 # 50X change percentage, -2% touch ground
+                    plt.bar(data["xcord"], height, data["width"], bottom=fig_ymax-height, color=mycolor, alpha=0.2 )
+                #plt.bar(data["xcord"], (fig_ymax-fig_ymin)*0.05, data["width"], bottom=fig_ymin+(fig_ymax-fig_ymin)*0.95, color=mycolor )            
+                #plt.bar(data["xcord"], (fig_ymax-fig_ymin), data["width"], bottom=fig_ymin, color=mycolor, alpha=0.2 )
     
     #
     # plot stock name
@@ -495,7 +508,12 @@ def up(pandas_series):
     start = pandas_series.iloc[0]
     end   = pandas_series.iloc[-1]
     #return f"{end:.2f}/{start:.2f}:{int(((end-start)/start)*100):>4}%"
-    return f"{int(((end-start)/start)*100)}%"
+    up = "NA"
+    if np.isnan(start) or np.isnan(end):
+        pass
+    else:
+        up = f"{int(((end-start)/start)*100)}%" 
+    return up
 
 def set_row_num(total):
     row = total ** (1/2)
