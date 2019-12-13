@@ -536,8 +536,15 @@ if __name__ == "__main__":
                     mysecurity.set_sortvalue(row["Sort"])
 
                 if sample:
+                    samples={}
                     sts = stimeseries(df)
-                    samples = sts.sampling_stks_bb(14, 3)
+                    if   sample == 'stks_bb':
+                        samples = sts.sampling_stks_bb(14, 3)
+                    elif sample == 'below_bb':
+                        samples = sts.sampling_below_bb()
+                    elif sample == 'plunge_macd':
+                        samples = sts.sampling_plunge_macd()
+                                           
                     for date, price in samples.items():
                         mysecurity = Security(price)                    
                         mysecurity.set_date_added(date)
