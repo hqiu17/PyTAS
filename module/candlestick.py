@@ -63,6 +63,7 @@ def cstick_sma (df0):
     df["150MA"]=df["4. close"].rolling(150).mean()
     df["200MA"]=df["4. close"].rolling(200).mean()
     """
+    
     df["20SMA"]=df["4. close"].rolling(20).mean()
     df['STD20']=df["4. close"].rolling(20).std()
     df['BB20u']=df['20SMA'] + df['STD20'] *2
@@ -148,7 +149,7 @@ def date_to_index(date, series):
     return index_zacks    
     return date_close.index[index_zacks]
 
-def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3, 
+def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3, 
                        date_added="", date_sold="",
                        industry="",
                        annotation="",
@@ -255,7 +256,7 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
         df["50MA"].plot()
         df["100MA"].plot()
         df["150MA"].plot()
-        #df["200MA"].plot()
+
         if sample_size <= 120:
             df['BB20u'].plot(color='#1f77b4')
             df['BB20d'].plot(color='#1f77b4')
@@ -266,7 +267,6 @@ def draw_a_candlestick(df0, sticker="", foldchange_cutoff=3,
                 ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
                  '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
             """
-
 
     # plot candlesticks (core data)
     if df.shape[0] >15 and df.shape[0] <=120:
@@ -461,7 +461,7 @@ def draw_many_candlesticks(securities,
 
         #df=cstick_sma(df)
         df=cstick_width_gradient( df.tail(dayspan), widthgradient )
-        redraw = draw_a_candlestick(df, ticker, 3, 
+        redraw = draw_a_candlestick(ax, df, ticker, 3, 
                                     mysecurity.get_date_added(),
                                     mysecurity.get_date_sold(),
                                     mysecurity.get_industry(),

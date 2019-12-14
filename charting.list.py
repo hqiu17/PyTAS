@@ -7,6 +7,7 @@
 import os
 import re
 import sys
+import copy
 import argparse
 import pandas as pd
 import numpy as np
@@ -533,10 +534,17 @@ if __name__ == "__main__":
                     mysecurity.set_industry(row["Industry"])
                 if "Sort" in row:
                     mysecurity.set_sortvalue(row["Sort"])
-                
+
                 if sample:
+                    samples={}
                     sts = stimeseries(df)
-                    samples = sts.sampling_stks_bb(14, 3)
+                    if   sample == 'stks_bb':
+                        samples = sts.sampling_stks_bb(14, 3)
+                    elif sample == 'below_bb':
+                        samples = sts.sampling_below_bb()
+                    elif sample == 'plunge_macd':
+                        samples = sts.sampling_plunge_macd()
+                                           
                     for date, price in samples.items():
                         mysecurity = Security(price)                    
                         mysecurity.set_date_added(date)
@@ -544,12 +552,11 @@ if __name__ == "__main__":
                 else:
                     securities[f"{sticker}: {note}"] = mysecurity
 
-                
-                
             else:
                 print (price, " doesn't exist")
                 df_filtered= df_filtered.append(row_copy,ignore_index=False)
             
+
         ########################################################################
         #   plot multi-panel figure while going through a list of securities   #
         ########################################################################

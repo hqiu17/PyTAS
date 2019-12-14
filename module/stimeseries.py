@@ -89,7 +89,8 @@ class stimeseries:
     """
     
     def macd_cross_up(self, sspan=12, lspan=26, persist=1):
-        df=self.df.copy(deep=True)
+        df=self.df
+        #df=self.df.copy(deep=True)
         exp1 = df['4. close'].ewm(span=sspan, adjust=False).mean()
         exp2 = df['4. close'].ewm(span=lspan, adjust=False).mean()
         macd = exp1 - exp2
@@ -122,7 +123,7 @@ class stimeseries:
         df["signal"] = np.where( sgnl>0, 1, 0)        
         paction = (df['2. high'] - df['4. close']) / ( df['2. high'] - df['3. low']) 
         return STOK, STOD, df["signal"].diff(), paction
-        
+
     def stochastic_cross(self, n, m):
         stok, stod, signal, paction = self.stochastic_cross_internal(n, m)
         return stok[-1], stod[-1], signal[-1], paction[-1]
@@ -239,8 +240,81 @@ class stimeseries:
 
             if (bb_dist_low[i]<0.02 or bb_dist_low[i-1]<0 or bb_dist_low[i-2]<0)and bb_dist_close[i] <0.33:
                 sub = sts.iloc[i-100:i+13]
+                # in uptrend
                 if self.in_uptrend_internal(sub, 60, 0.8, 0)==0: continue
                 date= "{}".format(stok.index[i]).rstrip('00:00:00')
                 samples[date]=sub
 
         return samples
+
+
+    def sampling_below_bb(self):
+        samples={}
+        sts=self.df.copy(deep=True)    
+        bb_dist_close = (sts["4. close"]-sts['BB20d'])/(sts['BB20u']-sts['BB20d'])
+        length = sts.shape[0]
+        for i in range(100, length-15):
+            if bb_dist_close[i] < -0.1 and sts['BB20d'][i] < sts["2. high"][i+1] and sts["4. close"][i]>sts['100MA'][i]:
+                sub_show = sts.iloc[i-100:i+13]            
+                sub_test = sts.iloc[i-100:i]
+                if self.in_uptrend_internal(sub_test, 60, 0.8, 0)==0: continue                
+                date= "{}".format(sts.index[i]).rstrip('00:00:00')
+                samples[date]=sub_show
+        return samples
+
+    def sampling_plunge_macd(self, recovery=5):
+        PLUNGE_DEPTH    = 0.2
+        SPAN_FOR_PLUNGE = 20    # days to calculate plunge of price
+        OVERSOLD_CUTFF  = 15
+        AVOID  = 15             # the latest day span to avoid from sampling
+        samples={}
+        self.macd_cross_up()
+        self.do_rsi()
+
+        sts=self.df.copy(deep=True)
+        # calculate necessary parameters
+        sts=sts.iloc[0:(0-AVOID)]
+        sts['RSImin'] = sts['RSI'].rolling(recovery).min()
+        sts['signal'] = sts['signal'].diff()
+        sts['signal'] = np.where(sts['signal']>0,1,0)
+        sts['max_30days'] = sts['4. close'].rolling(SPAN_FOR_PLUNGE).max()
+        sts['loss'] = (sts['max_30days']-sts['4. close'])/sts['max_30days']
+        sts['paction']= sts['4. close'] - sts['1. open']
+        # filter for rows meeting requirement
+        sts['row_num'] = np.arange(len(sts))
+        sts2 = sts[ sts['signal'] == 1 ]
+        sts2 = sts2[ sts2['loss']   > PLUNGE_DEPTH  ]
+        sts2 = sts2[ sts2['RSImin'] < OVERSOLD_CUTFF]
+        sts2 = sts2[ sts2['paction']> 0             ]
+
+        for i in sts2['row_num']:
+            sub_show = sts.iloc[i-65:i+15]
+            if sub_show.shape[0]<5: continue
+            #print(sub_show.head(5))
+            #sub_test = sts.iloc[i-100:i]
+            #if self.in_uptrend_internal(sub_test, 60, 0.8, 0)==0: continue                
+            date= "{}".format(sts.index[i]).rstrip('00:00:00')
+            samples[date]=sub_show
+
+        return samples
+
+    def do_rsi(self, n=14):
+        df=self.df
+        #delta=df['4. close'].diff()
+        
+        df['delta'] = df['4. close'].diff()
+        df['dltup'] = df['delta']
+        df['dltdw'] = df['delta']
+        
+#        df['dltup'][df['delta']<0]=0
+#        df['dltdw'][df['delta']>0]=0
+        df['dltup'] = np.where(df['delta']<0,0,df['delta'])
+        df['dltdw'] = np.where(df['delta']>0,0,df['delta'])
+
+        df['dltup_rol']=df['dltup'].rolling(n).mean()
+        df['dltdw_rol']=df['dltdw'].rolling(n).mean().abs()
+        
+        df['RSI'] = 100 - (100/(1+ df['dltup_rol']/df['dltdw_rol']))
+        
+    def get_rsi(n=14):
+        return self.do_rsi(n)[-1]
