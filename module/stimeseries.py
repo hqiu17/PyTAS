@@ -163,15 +163,18 @@ class stimeseries:
         return status
         
     def in_uptrend_internal(self, dataframe, TRNDdays, cutoff, blind):
+
         status = 0
+        df = pd.DataFrame()
         if blind > 0 :
             if blind < dataframe.shape[0]:
                 last_index = dataframe.shape[0] - blind
                 df = dataframe[0:last_index]
             else:
                 return status
-
-        df = dataframe.copy(deep=True)
+    
+        if df.shape[0] == 0:
+            df = dataframe.copy(deep=True)
         count  = 0
         count += self.two_dragon_internal( 20, 50,TRNDdays, df, cutoff)
         count += self.two_dragon_internal( 50,100,TRNDdays, df, cutoff)
