@@ -155,7 +155,9 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
                        annotation="",
                        sort=""):
     redraw = 0
-    df = df0.copy(deep=True)
+    #print (df0)
+    
+    df = df0  #.copy(deep=True)
     # figure out the maximum/minimum of x/y axis
     #
     sample_size = len(df.index)
@@ -250,8 +252,8 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
         #plt.axhline(y=close_onbefore_zacks,color="black",dashes=[5,10],linewidth=0.3)
 
     # plot SMA
-    if sample_size > 50:
-        df["4. close"].plot( color='black')    
+    df["4. close"].plot( color='black')
+    if sample_size > 50: 
         df["20MA"].plot()
         df["50MA"].plot()
         df["100MA"].plot()
@@ -270,7 +272,7 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
 
     # plot candlesticks (core data)
     if df.shape[0] >15 and df.shape[0] <=120:
-        df_recent = df.tail(15)
+        df_recent = df.tail(20)
         for num, data in df_recent.iterrows():
             price_low = data["3. low"]
             price_range = data["2. high"]-data["3. low"]
@@ -455,11 +457,8 @@ def draw_many_candlesticks(securities,
         pos+=1
         
         ax=plt.subplot(num_row, num_col, transposed_pos[pos-1])
-        #print ("#1", ticker, num_row, num_col, pos-1)
         ax.yaxis.tick_right()
         
-
-        #df=cstick_sma(df)
         df=cstick_width_gradient( df.tail(dayspan), widthgradient )
         redraw = draw_a_candlestick(ax, df, ticker, 3, 
                                     mysecurity.get_date_added(),
@@ -480,7 +479,7 @@ def draw_many_candlesticks(securities,
             
             df=cstick_sma(df_copy)
             df=cstick_width_gradient( df.tail(int(dayspan2)), widthgradient )
-            redraw = draw_a_candlestick(df, ticker, 3, 
+            redraw = draw_a_candlestick(ax, df, ticker, 3, 
                                         mysecurity.get_date_added(),
                                         mysecurity.get_date_sold(),
                                         mysecurity.get_industry(),

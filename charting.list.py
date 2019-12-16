@@ -25,7 +25,7 @@ from matplotlib.font_manager import FontProperties
 
 if __name__ == "__main__":
 
-    def draw_list_candlestick(file, vgm, weekly, weeklyChart, uptrend, sort_trange, sort_madistance, sort_bbdistance, sort_brokerrecomm,
+    def draw_list_candlestick(file, vgm, weekly, weeklyChart, uptrend, sort_zacks, sort_trange, sort_madistance, sort_bbdistance, sort_brokerrecomm,
                               sort_industry, sort_performance, edaySort, dayspan, dateAddedSort, filter_madistance, cutoffBroker, cutBrokerbuyCount,
                               gradient, sort_sink, blind, filterOnly, filter_macd_sig, filter_stochastic_sig, two_dragon, sample):
         """ chart a list of stickers listed in a file
@@ -78,6 +78,8 @@ if __name__ == "__main__":
                 file_name = file_name + ".cbr" + str(int(cutoffBroker*100))
             if cutBrokerbuyCount>0:
                 file_name = file_name + ".cbc" + str(int(cutBrokerbuyCount))
+            if sort_zacks:
+                file_name = file_name + ".szk" + sort_zacks # sort by upside trading range                
             if sort_trange==0:
                 file_name = file_name + ".str"    # sort by upside trading range
             elif sort_trange>0:
@@ -115,7 +117,7 @@ if __name__ == "__main__":
         figdepth=24
         default_row_num=args.rownumber
         if "," in dayspan:
-            default_row_num=4
+            default_row_num=5
         panel_row= cdstk.set_row_num(num_stickers)
         if panel_row > default_row_num:
             panel_row = default_row_num
@@ -140,6 +142,11 @@ if __name__ == "__main__":
         if sort_industry and "Industry" in df:
             df=df.sort_values(["Industry"])
 
+        if   sort_zacks=='V':
+            if "Value Score" in df: df=df.sort_values(["Value Score"])
+        elif sort_zacks=='G':
+            if "Growth Score" in df: df=df.sort_values(["Growth Score"])
+                        
         if sort_trange >=0:
             """ sort symbols by upside tranding range defined as the difference between last
                 close and the highest close in specified time range
@@ -464,10 +471,13 @@ if __name__ == "__main__":
         count=1000
         df_filtered = pd.DataFrame()
 
+        wins=0
+        losses=0
+        Rtotal=0
         for sticker, row in df.iterrows():
             row_copy = row.copy(deep=True)
             count+=1
-            
+
             # prepare figure header
             note = ""
             # prepare head note for display in chart
@@ -508,6 +518,10 @@ if __name__ == "__main__":
             price = dir+"/"+sticker+".txt"
             if os.path.exists(price):
                 df=pd.read_csv(price, sep="\t",parse_dates=['date'], index_col=['date'])
+
+                #print(sticker)                
+                rsi = str(stimeseries(df).get_rsi())[0:4]
+
                 if weekly or weeklyChart: 
                     df = stimeseries(df).get_weekly()
                 else:
@@ -538,24 +552,48 @@ if __name__ == "__main__":
                 if sample:
                     samples={}
                     sts = stimeseries(df)
-                    if   sample == 'stks_bb':
-                        samples = sts.sampling_stks_bb(14, 3)
+                    if  sample == 'stks_bb':
+                        samples,R,win,loss = sts.sampling_stks_bb(14, 3)
+                        if len(samples)==0: continue
+                        wins+=win
+                        losses+=loss
+                        print ('---------', sticker, '-------')
+                        print(f"f {win:>6} {loss}")
+                        for date, r in R.items():
+                            Rtotal = Rtotal +r
+                            if r >0 and r<0.001: r=0
+                            print (f"r {str(r)[0:5]:>6} {Rtotal}")
+                        
                     elif sample == 'below_bb':
                         samples = sts.sampling_below_bb()
                     elif sample == 'plunge_macd':
-                        samples = sts.sampling_plunge_macd()
-                                           
+                        samples,R,win,loss = sts.sampling_plunge_macd()
+                        if len(samples)==0: continue
+                        wins+=win
+                        losses+=loss
+                        print ('---------', sticker, '-------')
+                        print(f"f {win:>6} {loss}")
+                        for date, r in R.items():
+                            Rtotal = Rtotal +r
+                            print (f"r {str(r)[0:5]:>6} {Rtotal}")
+                        #Rtotal+= sum(list(R.values()))
                     for date, price in samples.items():
+                        rsi = str(stimeseries(price).get_rsi())[0:3]
                         mysecurity = Security(price)                    
                         mysecurity.set_date_added(date)
-                        securities[f"{sticker}: {date}"] = mysecurity
+                        r = R[date]
+                        if r>0 and r <0.001: r=0
+                        r=str(r)[0:5]
+                        securities[f"{sticker}: {note} {date} {r}R"] = mysecurity
                 else:
-                    securities[f"{sticker}: {note}"] = mysecurity
+                    securities[f"{sticker}: {note} RSI-{rsi}"] = mysecurity
 
             else:
                 print (price, " doesn't exist")
                 df_filtered= df_filtered.append(row_copy,ignore_index=False)
             
+        if sample:
+            print (f"#    win {wins}, loss {losses}, {Rtotal}R {Rtotal/(wins+losses)}R edge")
 
         ########################################################################
         #   plot multi-panel figure while going through a list of securities   #
@@ -703,6 +741,9 @@ if __name__ == "__main__":
                         help=": filter for uptrend defined by 2 moving average. example 20,50,60 or 20,50,60,0.8")
                         
     # SORT
+    parser.add_argument("-szk","--sort_zacks",
+                        type=str, default="",
+                        help='sort symbols by zacks type value(V) or growth(G) rank')    
     parser.add_argument("-sda","--sort_dateAdded",
                         help=": sort by date added",
                         action='store_true')
@@ -747,10 +788,12 @@ if __name__ == "__main__":
     # main code
     dir = args.dir
     for list in args.list:
-        draw_list_candlestick(list, args.vgm,
+        draw_list_candlestick(list, 
+                                args.vgm,
                                 args.weekly,
                                 args.weeklyChart,
                                 args.uptrend,
+                                args.sort_zacks,
                                 args.sort_trange, 
                                 args.sort_madistance,
                                 args.sort_bbdistance,
