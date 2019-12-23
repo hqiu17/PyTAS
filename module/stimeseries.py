@@ -125,6 +125,8 @@ class stimeseries:
         return STOK, STOD, df["signal"].diff(), paction
 
     def stochastic_cross(self, n, m):
+        """ return tuple of 4 values: k, d, k>d?(1/0), candlestick head size
+        """
         stok, stod, signal, paction = self.stochastic_cross_internal(n, m)
         return stok[-1], stod[-1], signal[-1], paction[-1]
     
@@ -152,7 +154,10 @@ class stimeseries:
         df["signal"] =np.where( sgnl>0, 1, 0)
         
         ratio = df.tail(TRNDdays)['signal'].sum()/TRNDdays
-        if ratio > cutoff: status = 1
+        if ratio > cutoff: 
+            status = 1
+        elif ratio < (1-cutoff):
+            status = -1
         return status
         
     def two_dragon(self, MAdays1, MAdays2, TRNDdays, cutoff=0.8):
@@ -180,7 +185,11 @@ class stimeseries:
         count += self.two_dragon_internal( 20, 50,TRNDdays, df, cutoff)
         count += self.two_dragon_internal( 50,100,TRNDdays, df, cutoff)
         count += self.two_dragon_internal(100,150,TRNDdays, df, cutoff)
-        if count == 3: status = 1
+        if count == 3: 
+            status = 1
+        elif count == -3:
+            status = -1
+
         return status
         
     def in_uptrend(self, TRNDdays, cutoff=0.8, blind=0):
@@ -231,7 +240,7 @@ class stimeseries:
             if signal[i]<=0   : continue
             # candle pattern
             if paction[i]>0.3 : continue
-            if sts['1. open'][i] > sts['4. close'][i]  : continue            
+            if sts['1. open'][i] > sts['4. close'][i]  : continue     
             if max(sts['4. close'][i-1],sts['1. open'][i-1]) > sts['4. close'][i] : continue
             # no transation
             if sts['2. high'][i] > sts['2. high'][i+1]  : continue
@@ -244,20 +253,20 @@ class stimeseries:
             """
             #print (signal[i], stok.index[i], bb_dist_low[i], bb_dist_low[i-1],bb_dist_close[i])
 
-            #"""
+            """
             if (bb_dist_low[i]<0.02 or bb_dist_low[i-1]<0 or bb_dist_low[i-2]<0)and bb_dist_close[i] <0.33:
                 pass
             else:
                 continue
-            #"""
+            """
             
-            if sts['4. close'][i]>sts['20MA'][i]: continue
+            if sts['4. close'][i]<sts['20MA'][i]: continue
             
             sub = sts.iloc[0:i+prediction-1]
             sub_test = sts.iloc[0:i+1]
             # in uptrend
-            if self.in_uptrend_internal(sub_test, 100, 0.9, 0)==0: continue
-            if self.in_uptrend_internal(sub_test, 60, 0.99, 0)==0: continue
+            if self.in_uptrend_internal(sub_test, 90, 0.90, 0)==0: continue
+            if self.in_uptrend_internal(sub_test, 60, 0.90, 0)==0: continue
             date= "{}".format(stok.index[i]).rstrip('00:00:00')
             if '18-12-' in date or '19-01-' in date: continue
             samples[date]=sub
@@ -265,7 +274,7 @@ class stimeseries:
             sts['5daymin'] = sts['3. low'].rolling(2).min()
             entry = sts['2. high'][i]
             sell_stoploss = sts['5daymin'][i]
-            r_count = self.fate(sub, sts.index[i], entry, sell_stoploss)
+            r_count = self.fate(sub, sts.index[i], entry, sell_stoploss, True)
             R[date]=r_count
             if r_count>0: win+=1
             if r_count<0: loss+=1
@@ -337,7 +346,7 @@ class stimeseries:
             if r_count<0: loss+=1
         return samples, R, win, loss
 
-    def fate(self, df, observe_date, entry, sell_stoploss):
+    def fate(self, df, observe_date, entry, sell_stoploss, sticky=False):
         #df = self.get_atr(df)
         #df['5daymin'] = df['3. low'].rolling(5).min()
         observe_date_index = df.index.get_loc(observe_date)
@@ -365,9 +374,10 @@ class stimeseries:
             else:
                 #print('live', str(sell_stoploss) )
                 dist = row['4. close']-sell_stoploss
-                dist_byR = dist//risk
-                #if dist_byR > 1:
-                #    sell_stoploss = sell_stoploss + risk*(dist_byR-1) 
+                if sticky:
+                    dist_byR = dist//risk
+                    if dist_byR > 1:
+                        sell_stoploss = sell_stoploss + risk*(dist_byR-1) 
                 exit = row['4. close']
         #print ("//\n")
         #print  (exit, entry, risk)

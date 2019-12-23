@@ -21,13 +21,38 @@ import module.utility as utility
 from matplotlib.font_manager import FontProperties
 
 
+def sandwiched(string, series):
+    """
+    """
+    status = True
+    high=""
+    low =""
+    if ',' in string:
+        list=string.split(',')
+        high=list[0]+'MA'
+        low =list[1]+'MA'
+    else:
+        high=string +'MA'
+    
+    if  series['3. low']<=series[high] and series[high] <= series['4. close']:
+        status = True
+    elif low:
+        if series[low] <= series['4. close'] and series['4. close']<= series[high]:
+            status = True
+        else:
+            status=False
+    else:
+        status=False
+        
+    #print (status, string, list(series) )
+    return status
 
 
 if __name__ == "__main__":
 
     def draw_list_candlestick(file, vgm, weekly, weeklyChart, uptrend, sort_zacks, sort_trange, sort_madistance, sort_bbdistance, sort_brokerrecomm,
                               sort_industry, sort_performance, edaySort, dayspan, dateAddedSort, filter_madistance, cutoffBroker, cutBrokerbuyCount,
-                              gradient, sort_sink, blind, filterOnly, filter_macd_sig, filter_stochastic_sig, two_dragon, sample):
+                              gradient, sort_sink, blind, filterOnly, filter_macd_sig, filter_stochastic_sig, filter_ema_slice, two_dragon, sample):
         """ chart a list of stickers listed in a file
             the stick prices data are stored in a directory
         """
@@ -68,6 +93,8 @@ if __name__ == "__main__":
             print (file_name)
             if sample:
                 file_name = file_name + ".hist_"+sample
+            if filterOnly:
+                file_name = file_name + ".filtered"
             if vgm:
                 file_name = file_name + ".cvg"
             if blind>0:
@@ -79,7 +106,7 @@ if __name__ == "__main__":
             if cutBrokerbuyCount>0:
                 file_name = file_name + ".cbc" + str(int(cutBrokerbuyCount))
             if sort_zacks:
-                file_name = file_name + ".szk" + sort_zacks # sort by upside trading range                
+                file_name = file_name + ".szk" + sort_zacks.replace(',','') # sort by upside trading range                
             if sort_trange==0:
                 file_name = file_name + ".str"    # sort by upside trading range
             elif sort_trange>0:
@@ -104,6 +131,8 @@ if __name__ == "__main__":
                 file_name = file_name + ".macd" + filter_macd_sig.replace(',','-')
             if filter_stochastic_sig:
                 file_name = file_name + ".stks" + filter_stochastic_sig.replace(',','-')
+            if filter_ema_slice:
+                file_name = file_name + ".mslc" + filter_ema_slice.replace(',','-')
             if two_dragon:
                 file_name = file_name + ".2drgn" + str(two_dragon).replace(',','-')
                 
@@ -142,10 +171,29 @@ if __name__ == "__main__":
         if sort_industry and "Industry" in df:
             df=df.sort_values(["Industry"])
 
-        if   sort_zacks=='V':
-            if "Value Score" in df: df=df.sort_values(["Value Score"])
-        elif sort_zacks=='G':
-            if "Growth Score" in df: df=df.sort_values(["Growth Score"])
+        if sort_zacks:
+            type=''
+            cut =''
+            if ',' in sort_zacks:
+                list = sort_zacks.split(',')
+                type, cut = list
+                cut = cut.upper()
+            else:
+                type=sort_zacks
+                            
+            if   type=='V' and "Value Score" in df:
+                if cut:
+                    df = df[ df["Value Score"]<= cut ]
+                    print (f"# {df.shape[0]:>5} symbols meeting Value cutoff {cut}")
+                df=df.sort_values(["Value Score"])
+            elif type=='G' and "Growth Score" in df:
+                if cut:
+                    df = df[ df["Growth Score"]<= cut ]
+                    print (f"# {df.shape[0]:>5} symbols meeting Growth cutoff {cut}")
+                df=df.sort_values(["Growth Score"])
+            else:
+                print (f"invalide input for -szk: {sort_zacks}")
+                exit(1)
                         
         if sort_trange >=0:
             """ sort symbols by upside tranding range defined as the difference between last
@@ -155,34 +203,38 @@ if __name__ == "__main__":
             cut_forSort_60d = 0.05 
 
             symbols = df.copy(deep=True)
-            symbols.to_csv("test0.txt")
+            #symbols.to_csv("test0.txt")
             symbols["up_tranding_range_20d"]=pd.Series(0,index=symbols.index)
             symbols["up_tranding_range_60d"]=pd.Series(0,index=symbols.index)
-            symbols.to_csv("test1.txt")
+            #symbols.to_csv("test1.txt")
             for symbol, row in df.iterrows():
                 price = dir+"/"+symbol+".txt"
                 if os.path.exists(price):
                     dfPrice=pd.read_csv(price,sep="\t",index_col=0)
                     dfPrice=dfPrice.tail(500)
-                    sts = stimeseries(dfPrice)                    
-                    
+                    sts = stimeseries(dfPrice)
+
                     price_change_20d = sts.get_trading_uprange(20)
                     if price_change_20d < cut_forSort_20d:
-                        price_change_20d = 0
+                        #price_change_20d = 0
+                        pass
                     price_change_60d = sts.get_trading_uprange(60)
                     if price_change_60d < cut_forSort_20d:
-                        price_change_60d = 0
-                        
+                        #price_change_60d = 0
+                        pass
+
+
                     symbols.loc[symbol,"up_tranding_range_20d"]=price_change_20d
                     symbols.loc[symbol,"up_tranding_range_60d"]=price_change_60d
-                    
+
             if sort_trange>0:
                 symbols = symbols.loc[ symbols["up_tranding_range_20d"]>sort_trange ]
+
                                  
             df=symbols
             df=df.sort_values(["up_tranding_range_20d","up_tranding_range_60d"],ascending=[False,False])
             print (f"# {df.shape[0]:>5} symbols meet trading range requirement")
-            
+
         if filter_macd_sig:
             mymatch = re.match("(\d+),(\d+)", filter_macd_sig)
             sspan = 0
@@ -193,7 +245,7 @@ if __name__ == "__main__":
             else:
                 print ("macd input is invalide")
                 sys.exit(1)
-            
+
             #
             symbols = df.copy(deep=True)
             symbols["Sort"]=pd.Series(0,index=symbols.index)
@@ -234,6 +286,13 @@ if __name__ == "__main__":
             print (f"# {df.shape[0]:>5} symbols meet macd criteria")
             
         if filter_stochastic_sig:
+            """ filter for oversold (d < cutoff) tickers with stochastic K > D and
+                bullish price action (paction < cutoff)
+                input string: stochastic long term, 
+                              stochastic short term, 
+                              stochastic d cutoff, 
+                              k>d ('all') or k just cross d up ('crs' or any string)
+            """
             mymatch = re.match("(\d+),(\d+),(\d+),(\w+)", filter_stochastic_sig)
             n = 0
             m = 0
@@ -264,10 +323,10 @@ if __name__ == "__main__":
                     (symbols.loc[symbol,"STOK"], 
                      symbols.loc[symbol,"STOD"], 
                      symbols.loc[symbol,"STOC"],
-                     symbols.loc[symbol,"paction"] ) = sts.stochastic_cross(n, m)
+                     symbols.loc[symbol,"BLSH"] ) = sts.stochastic_cross(n, m)
             symbols=symbols.loc[ symbols['STOK'] < c+15 ]
             symbols=symbols.loc[ symbols['STOD'] < c ]
-            symbols=symbols.loc[ symbols['paction'] < 0.25 ]
+            symbols=symbols.loc[ symbols['BLSH'] < 0.4 ]
 
             if mode == "all":
                 # count all instances where K>D
@@ -276,7 +335,7 @@ if __name__ == "__main__":
                 # count instances reflecting transit from K<D to K>D
                 symbols=symbols.loc[ symbols['STOC'] > 0 ]
             df = symbols
-            print (f"# {df.shape[0]:>5} symbols meet stochastic criteria")
+            print (f"# {df.shape[0]:>5} symbols meet stochastic criteria")   
             
         if two_dragon:
             array = two_dragon.split(',')
@@ -389,7 +448,13 @@ if __name__ == "__main__":
                     if weekly:
                         sts = stimeseries(dfPrice)
                         sts.to_weekly()
-                    if sts.in_uptrend(window, cutoff, blind):
+                    if sts.in_uptrend(window, cutoff, blind)==1:
+                        if filter_ema_slice:
+                            #print (filter_ema_slice)
+                            dfPrice=cdstk.cstick_sma(dfPrice)
+                            if not dfPrice['20MA'][0-window] < dfPrice['20MA'][-1]: continue
+                            if not sandwiched(filter_ema_slice, dfPrice.iloc[-1,:]):
+                                continue
                         symbols = symbols.append(df.loc[symbol], ignore_index=False)
             df=symbols
             print (f"# {df.shape[0]:>5} symbols meet uptrend-{uptrend} criteria")
@@ -593,7 +658,9 @@ if __name__ == "__main__":
                 df_filtered= df_filtered.append(row_copy,ignore_index=False)
             
         if sample:
-            print (f"#    win {wins}, loss {losses}, {Rtotal}R {Rtotal/(wins+losses)}R edge")
+            win_rate = str(wins/(losses+wins))[0:4]
+            r_edge   = str(Rtotal/(wins+losses))[0:4]
+            print (f"#    {wins}wins, {losses}losses, {win_rate}winrate; {str(Rtotal)[0:4]} totalR {r_edge}R edge")
 
         ########################################################################
         #   plot multi-panel figure while going through a list of securities   #
@@ -601,6 +668,10 @@ if __name__ == "__main__":
         if filterOnly:
             df_filtered.index.name="Symbol"
             df_filtered.to_csv(file_name+".txt",sep="\t")
+            pd.set_option('display.max_rows', None)
+            #pd.set_option('display.max_columns', None)
+            print(df_filtered)
+            
         else:
             print (f"# {len(securities):>5} data to plot")
             num_to_plot = len(securities) if len(securities) >0 else 0
@@ -736,6 +807,10 @@ if __name__ == "__main__":
     parser.add_argument("-stks", "--filter_stochastic_sig",
                         type=str, default="",
                         help=": filter for stochastic K>D signal. example 14,3,20,all or 14,3,20,crs")
+                        
+    parser.add_argument("-mslc", "--filter_ema_slice",
+                        type=str, default="",
+                        help=": filter for price range contain MA or last close sandwiched between 2 MAs. example 20 or 20,50")
     parser.add_argument("-2dgn", "--two_dragon",
                         type=str, default="",
                         help=": filter for uptrend defined by 2 moving average. example 20,50,60 or 20,50,60,0.8")
@@ -743,7 +818,7 @@ if __name__ == "__main__":
     # SORT
     parser.add_argument("-szk","--sort_zacks",
                         type=str, default="",
-                        help='sort symbols by zacks type value(V) or growth(G) rank')    
+                        help='sort (and filter)symbols by zacks type value(V) or growth(G) rank. example -szk V,a')    
     parser.add_argument("-sda","--sort_dateAdded",
                         help=": sort by date added",
                         action='store_true')
@@ -812,6 +887,7 @@ if __name__ == "__main__":
                                 args.filterOnly,
                                 args.filter_macd_sig,
                                 args.filter_stochastic_sig,
+                                args.filter_ema_slice,
                                 args.two_dragon,
                                 args.sample
                                 )

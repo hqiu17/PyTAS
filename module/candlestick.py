@@ -35,7 +35,7 @@ class Security:
         self.sortvalue=sortvalue
                 
     def get_price(self):
-        return self.df.copy(deep=True) 
+        return self.df.copy(deep=True)
     def get_date_added(self):
         return self.date_added
     def get_date_sold(self):
