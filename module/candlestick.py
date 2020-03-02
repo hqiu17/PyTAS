@@ -12,6 +12,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 
+ma_days = [3, 20, 50, 100, 150, 200]
+
 class Security:
     def __init__(self, df):
         self.df=df.copy(deep=True)
@@ -52,7 +54,7 @@ class Security:
 def cstick_sma (df0):
     df=df0.copy(deep=True)
 
-    ma_days = [20, 50, 100, 150, 200]
+    #ma_days = [3, 20, 50, 100, 150, 200]
     for days in ma_days:
         #simple moving average
         #df[str(days)+'MA'] = df["4. close"].rolling(days).mean()
@@ -254,11 +256,18 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
     # plot SMA
     df["4. close"].plot( color='black')
     if sample_size > 50: 
+        for days in ma_days[1:-1]:
+            MA = str(days)+"MA"
+            if MA in df: df[MA].plot()
+        """    
+        df["3MA"].plot()
         df["20MA"].plot()
         df["50MA"].plot()
         df["100MA"].plot()
         df["150MA"].plot()
-
+        df["200MA"].plot()
+        """
+        
         if sample_size <= 120:
             df['BB20u'].plot(color='#1f77b4')
             df['BB20d'].plot(color='#1f77b4')
@@ -314,20 +323,29 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
     
     #
     # plot figure title
+    facecolor='white'
+    if re.search(r'-[\d\.]+R', sticker):
+        facecolor = 'yellow'
+    elif re.search(r'\s[\d\.]+R', sticker): 
+        facecolor = 'green'
+
     if 'A/' in sticker or 'B/' in sticker or 'C/' in sticker or 'zr1' in sticker or 'zr2' in sticker:
         color="blue"
-        if 'A/' in sticker or 'B/' in sticker or 'zr1' in sticker: color="red"
+        if 'A/' in sticker or 'B/' in sticker or 'zr1' in sticker: 
+            color="red"
+        if facecolor=='white': facecolor='yellow'
         plt.gca().text(
                    fig_xmin+fig_xmax*0.005,fig_ymax,
                    sticker,
                    fontsize=20, color=color,
-                   bbox=dict(facecolor='yellow',alpha=0.8)
+                   bbox=dict(facecolor=facecolor, alpha=0.8)
                    )
     else:
         plt.gca().text(
                    fig_xmin+fig_xmax*0.005,fig_ymax,
                    sticker,
-                   fontsize=20, color='blue'
+                   fontsize=20, color='blue',
+                   bbox=dict(facecolor=facecolor, alpha=0.8)
                    )
     
     #
@@ -492,6 +510,8 @@ def draw_many_candlesticks(securities,
         mymatch=re.match("(\S+)\:.+", ticker)
         output=mymatch.group(1)
         output=output+".pdf"
+        #output= mysecurity.get_date_added() + output
+        output= mysecurity.date_added + output
     plt.savefig(output, bbox_inches='tight')
 
     plt.close("all")

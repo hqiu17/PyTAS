@@ -56,6 +56,57 @@ def file_strip_txt (file):
         name = mymatch.group(1)
     return name
 
+def get_output_filename(input, **kwargs):
+    file_name = input
+    if kwargs["sample"]:
+        file_name = file_name + ".hist_"+ kwargs["sample"]
+    if kwargs["filterOnly"]:
+        file_name = file_name + ".filtered"
+    if kwargs["vgm"]:
+        file_name = file_name + ".cvg"
+    if kwargs["blind"] >0:
+        file_name = file_name + ".bld"  + str(kwargs["blind"])
+    if kwargs["uptrend"]:
+        file_name = file_name + ".cup"  + kwargs["uptrend"].replace(',','-')
+    if kwargs["cutBrokerbyRatio"]>0:
+        file_name = file_name + ".cbr"  + str(int(kwargs["cutBrokerbyRatio"]*100))
+    if kwargs["cutBrokerbyCount"]>0:
+        file_name = file_name + ".cbc"  + str(int(kwargs["cutBrokerbyCount"]*100))
+    if kwargs["sort_zacks"]:
+        file_name = file_name + ".szk"  + kwargs["sort_zacks"].replace(',','')
+    elif kwargs["sort_trange"]:
+        file_name = file_name + ".str"  + kwargs["sort_trange"].replace(',','_')
+    if kwargs["sort_madistance"] >0:
+        file_name = file_name + ".sma"  + str(kwargs["sort_madistance"])
+    if kwargs["sort_bbdistance"]:
+        file_name = file_name + ".sbd"  + kwargs["sort_bbdistance"].replace(',','_')
+    if kwargs["sort_brokerrecomm"]:
+        file_name = file_name + ".sbr"
+    if kwargs["sort_performance"]>0:
+        file_name = file_name + ".spfmc"+ str(int(kwargs["sort_performance"]))
+    if kwargs["sort_industry"]:
+        file_name = file_name + ".sid"
+    if ',' in kwargs["sort_sink"]:
+        file_name = file_name + ".ssk" + kwargs["sort_sink"].replace(',','_')
+    if kwargs["sort_earningDate"]:
+        file_name = file_name + ".sed"
+    if kwargs["filter_madistance"]>0:
+        file_name = file_name + ".fma"  + str(kwargs["filter_madistance"])
+    if kwargs["filter_macd_sig"]:
+        file_name = file_name + ".macd" + kwargs["filter_macd_sig"].replace(',','-')
+    if kwargs["filter_stochastic_sig"]:
+        file_name = file_name + ".stks" + kwargs["filter_stochastic_sig"].replace(',','-')
+    if kwargs["filter_ema_slice"] :
+        file_name = file_name + ".mslc" + kwargs["filter_ema_slice"].replace(',','-')
+    if kwargs["two_dragon"]:
+        file_name = file_name + ".2drgn"+ kwargs["two_dragon"].replace(',','-')
+        
+    if kwargs["weekly"] :
+        file_name = file_name + ".wkly"
+    if kwargs["weeklyChart"] :
+        file_name = file_name + ".wklyc"
+
+    return file_name
 
 def fix_dateAdded(day):
     day = day.replace(",", ", ")
