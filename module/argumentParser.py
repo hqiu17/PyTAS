@@ -45,7 +45,7 @@ def get_parsed(args):
                         help=": set cut-off for broker buy recommendation count")
     parser.add_argument("-str", "--sort_trange",
                         type=str, default="",
-                        help=": sort names by trading range ad filter data with this value >0 (e.g., -str 20,0.05: 20-day trading range with 5% cutoff)")
+                        help=": sort names by trading range and filter data with this value >0 (e.g., -str 20,0.05: 20-day trading range with 5% cutoff)")
     parser.add_argument("-fmd", "--filter_madistance",
                         type=int, default=0,
                         help=": filter for price dipping to moving average")

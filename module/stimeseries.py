@@ -47,9 +47,13 @@ class stimeseries:
         return ratio
         
     def get_trading_uprange(self, day):
-        """ get the distance between last closing price and the maximum price in specified time
-            input  : days , time length to calculate maximum price
-            return : float, the difference in percentage
+        """ 
+        Get the distance between last closing price and the maximum price in specified time
+        
+        Argument
+            day : time length to calculate maximum price
+        Return
+            float, the difference in percentage
         """
         df=self.df.copy(deep=True)
         prices = df["4. close"].tail(day)
@@ -157,11 +161,20 @@ class stimeseries:
         ma1_key = str(MAdays1)+"MA"
         ma2_key = str(MAdays2)+"MA"
         
+        #print (MAdays1, MAdays2, TRNDdays, cutoff)
+        
+        
+        pd.set_option('display.max_rows', None)
+        
+        #print( df[['50MA','200MA']].tail(TRNDdays) ) 
+        
         if ma1_key in df.columns and ma2_key in df.columns:
             df['ma01'] = df[ma1_key]
             df['ma02'] = df[ma2_key]
         elif ( (TRNDdays+MAdays1)>df.shape[0] or (TRNDdays+MAdays2)>df.shape[0] ): 
             #print (f"Moving-avg {MAdays1} vs. {MAdays2} and window {TRNDdays} cannot be estimated for small data with {df.shape[0]} rows")
+            print (f"the data size {df.shape[0]}-days is not sufficent for accurate calculation")
+            #exit(1)
             return status
         else:
             df['ma01'] =df["4. close"].ewm(span=MAdays1,adjust=False).mean()
@@ -171,6 +184,9 @@ class stimeseries:
         df["signal"] =np.where( sgnl>0, 1, 0)
         
         ratio = df.tail(TRNDdays)['signal'].sum()/TRNDdays
+        
+        #print ('-->', ratio)
+        
         if ratio >= cutoff: 
             status = 1
         elif ratio < (1-cutoff):
@@ -179,13 +195,17 @@ class stimeseries:
         #print (ratio, status)
             
         return status
-        
-    def two_dragon(self, MAdays1, MAdays2, TRNDdays, cutoff=0.8):
+    
+    
+    #def two_dragon(self, MAdays1, MAdays2, TRNDdays, cutoff=0.8):
+    def two_dragon(self, *args):
         """ Test uptrend defined by 2 moving average indicators (internal version).
             In the defined period 'TRNDdays', if 80% of datapoint has moving average1
             greater than moving average2, return status(=1). 
         """
-        status = self.two_dragon_internal(MAdays1, MAdays2, TRNDdays, self.df, cutoff)
+        cutoff=0.8
+        if len(args)==4: cutoff=args[3]
+        status = self.two_dragon_internal(args[0], args[1], args[2], self.df, cutoff)
         return status
         
     def in_uptrend_internal(self, dataframe, TRNDdays, cutoff, blind):
@@ -217,6 +237,14 @@ class stimeseries:
         return status
         
     def in_uptrend(self, TRNDdays, cutoff=0.8, blind=0):
+        return self.in_uptrend_internal(self.df, TRNDdays, cutoff, blind)
+
+    def in_uptrendx(self, *args):
+        TRNDdays = int(args[0])
+        cutoff   = 0.8
+        blind    = 0
+        if len(args)==2: cutoff = float(args[1])
+        if len(args)==3: blind  = int(  args[2])
         return self.in_uptrend_internal(self.df, TRNDdays, cutoff, blind)
             
     def sma_multiple(self):
@@ -558,20 +586,47 @@ class stimeseries:
             return False
         else:
             return True
+
+
+    def stay_up(self, indicator1, indicator2, days):
+        #print ('*', days)
+        df=self.df.copy(deep=True)
+        df['signal'] = df[indicator1] - df[indicator2]
+        df['signal'] = np.where( df['signal'] >0, 1, 0)
+        cross = df.tail(days)["signal"].diff().abs().sum()
+        if cross == 0:
+            #print (df.tail(10)["signal"])
+            return True
+        else:
+            return False
+
+    def touch_down(self, indicator, days=5):
+        indicator = str(indicator)+'MA'
+        last_day = self.df.copy(deep=True).iloc[-1,:]
+        status = False
+        if last_day['3. low']<= last_day[indicator] and  last_day[indicator]<=last_day['4. close']:
+            if self.stay_up('3MA', indicator, days):
+                status = True
+        return status
+
             
     def get_referenced_change(self, reference_date, days):
         self.df["date"] = self.df.index
         reference_index = date_to_index(pd.to_datetime(reference_date), self.df["date"])
-        price_date0 = self.df["4. close"][reference_index]
+        price_date0 = self.df["4. close"][reference_index]+ 0.00001
         price_examine=0
         date_added = 0
         for i in range(reference_index+1, reference_index+days+1, 1):
             #print (i, dfPrice.shape[0])
             if i > (self.df.shape[0]-1): break
             date_added = date_added + 1
-            print (price_date0, self.df["4. close"][i] )
+            #print (price_date0, self.df["4. close"][i] )
             price_examine += self.df["4. close"][i]
-        ratio=(price_examine/date_added - price_date0)/price_date0
+            #print (date_added, price_examine)
+        if date_added==0 or price_examine==0:
+            ratio = 100
+        else:
+            ratio=(price_examine/date_added - price_date0)/price_date0
         return ratio
 
     

@@ -8,562 +8,81 @@ import os
 import re
 import sys
 import copy
-#import argparse
-import pandas as pd
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
-
-import module.candlestick as cdstk
-from module.candlestick import Security
-from module.candlestick import date_to_index
-from module.stimeseries import stimeseries
-import module.utility as utility
-import module.argumentParser as argumentParser
-from module.descriptions import descriptions
-
 from matplotlib.font_manager import FontProperties
 
+import module.candlestick as cdstk
+import module.utility as utility
+import module.argumentParser as argumentParser
 
-def sandwiched(string, series):
-    """
-    Test if daily candle crosses moving average or is sandwiched between two moving averages
-    
-        Argument:
-            string : parameter(s) for moving average calculation, including 20, 50, 100, 150 and 200
-                     two parameters separated by ',' is valide such as "20,50"
-            series : a pandas series holding data for one day (including high, low, volumn, etc )    
-        Return:   if series (daily candle) and moving average(s) meet the requirement (ture) or not (false)
-    """
-    status = False
-    high=""
-    low =""
-    if ',' in string:
-        list=string.split(',')
-        high=list[0]+'MA'
-        low =list[1]+'MA'
-    else:
-        if string == 'bb':
-            high = 'BB20d'
-        else:
-            high=string +'MA'
+from module.candlestick import Security
+from module.stimeseries import stimeseries
+from module.candlestick import date_to_index
+from module.descriptions import descriptions
 
-    if  series['3. low']<=series[high] and series[high] <= series['4. close']:
-        # candle cross MA/BB
-        status = True
-        if series['3MA'] <= series[high]: status = False
-    elif low:
-        # last close stay between 2 MAs
-        if series[low] <= series['4. close'] and series['4. close']<= series[high]:
-            status = True
-        if series['5MA'] <= series[low]: status = False
-    elif high == 'BB20d':
-        bb_dist_low   = (series["3. low"]-series['BB20d'])/(series['BB20u']-series['BB20d'])
-        if bb_dist_low <0.05:
-            status = True
-
-    return status
-
-#def dataframe
 
 if __name__ == "__main__":
     
     LAST_REMOVED_ROWS=0
+    FIGWIDTH=42
+    FIGDEPTH=24
     
-    def draw_list_candlestick(file, **kwargs):
-        """ chart a list of stickers listed in a file
-            the stick prices data are stored in a directory
+    def chart_securities(file, **kwargs):
         """
+        Chart a list of securities included in the input file
+    
+        Argument:
+            file : a text input file with each row representing a security and each column representing
+                   for an attribute of securities
+            kwargs : a list of user input key word arguments
+        """        
+        fig_wid  = 42
+        fig_dep  = 24        
         dayspan  = kwargs["period"]
         gradient = kwargs["gradient"]
         weekly   = kwargs['weekly']
-        ########################################################################
-        #                 preparation                                          #
-        ########################################################################
-        # pre-processing rank_data
-        df = pd.read_csv(file, sep="\t")
-        if "Industry" in df:
-           df = df[~df["Industry"].str.contains("Oil and Gas")]
-        if "Date Added" in df.columns:
-            df["Date Added"] = df["Date Added"].apply(utility.fix_dateAdded)
-            df["Date Added"] = pd.to_datetime(df["Date Added"])
-        if "Date Sold" in df.columns:
-            df["Date Sold"] = df["Date Sold"].apply(utility.fix_dateAdded)
-            df["Date Sold"] = pd.to_datetime(df["Date Sold"])
-        if "Ticker" in df and "Symbol" not in df:
-            df["Symbol"] = df["Ticker"]
-        
-        # sort names by symbol (default) or date
-        if kwargs["sort_dateAdded"] and "Date Added" in df.columns:
-            df = df.sort_values(by="Date Added", ascending=True)
-        else:
-            df = df.sort_values(by="Symbol")
-        if "Symbol" in df:
-            df = df.set_index("Symbol")
-        else:
-            print ("#-x No Symbols column in the table of symbols")
-            exit(1)
 
-        num_stickers = df.shape[0]
-        print (f"#->{num_stickers:>4} symbols in ", end="")
         
-        # prepare output name 
+        """ Basic processing the security data based on descriptive attributes
+        """
+        # read input security data sheet into a pandas dataframe
+        df = pd.read_csv(file, sep="\t")
+        
+        # record total number of securities in the input data
+        num_stickers = df.shape[0]
+        print (f"#->{num_stickers:>4} securities in ", end="")
+        
+        # set final output file name based on input file and user arguments
         file_name = cdstk.file_strip_txt(file)
         if file_name:
             print (file_name)
             file_name = utility.get_output_filename(file_name, **kwargs)
                 
-        # specify number of rows and columns for the whole chart
-        figwidth=42
-        figdepth=24
-        default_row_num=7
-        if "," in dayspan:
-            default_row_num=6
-        panel_row= cdstk.set_row_num(num_stickers)
-        if panel_row > default_row_num:
-            panel_row = default_row_num
+        # set the number of rows and columns within each output chart based on  
+        # the total number of input securities and charting related argument (-p)
+        default_row_num = 6 if "," in dayspan else 7
+        panel_row = cdstk.set_row_num(num_stickers)    
+        panel_row = default_row_num if panel_row > default_row_num else panel_row
         panel_col=panel_row
-        if ',' in dayspan:
-            panel_col = int((panel_col+1)/2)
+        if ',' in dayspan: panel_col = int((panel_col+1)/2)
         num_pic_per_file = panel_col * panel_row
             
         if default_row_num==1:
-            figwidth=10
-            figdepth=6
-            
+            fig_wid=10
+            fig_dep=6
+        
+        # securities to be charted in different scale (not implemented yet)
         to_be_recycled=[]    
         
-        ########################################################################
-        #                 sort or fileter a given list of symbols              #
-        ########################################################################
-        """
-        if kwargs["sort_brokerrecomm"]  and "# Rating Strong Buy or Buy" in df:
-            df=df.sort_values(["# Rating Strong Buy or Buy"], ascending=False)
-            
-        if kwargs["sort_industry"] and "Industry" in df:
-            df=df.sort_values(["Industry"])
-
-        if kwargs["sort_zacks"]:
-            sort_zacks = kwargs["sort_zacks"]
-            type=''
-            cut =''
-            if ',' in sort_zacks:
-                list = sort_zacks.split(',')
-                type, cut = list
-                cut = cut.upper()
-            else:
-                type=sort_zacks
-                            
-            if   type=='V' and "Value Score" in df:
-                if cut:
-                    df = df[ df["Value Score"]<= cut ]
-                    print (f"# {df.shape[0]:>5} symbols meeting Value cutoff {cut}")
-                df=df.sort_values(["Value Score"])
-            elif type=='G' and "Growth Score" in df:
-                if cut:
-                    df = df[ df["Growth Score"]<= cut ]
-                    print (f"# {df.shape[0]:>5} symbols meeting Growth cutoff {cut}")
-                df=df.sort_values(["Growth Score"])
-            else:
-                print (f"invalide input for -szk: {sort_zacks}")
-                exit(1)
-
-        if kwargs["sort_trange"] >=0:
-            sort_trange = kwargs["sort_trange"]
-            cut_forSort_20d = 0.03
-            cut_forSort_60d = 0.05 
-
-            symbols = df.copy(deep=True)
-            #symbols.to_csv("test0.txt")
-            symbols["up_tranding_range_20d"]=pd.Series(0,index=symbols.index)
-            symbols["up_tranding_range_60d"]=pd.Series(0,index=symbols.index)
-            #symbols.to_csv("test1.txt")
-            for symbol, row in df.iterrows():
-                price = dir+"/"+symbol+".txt"
-                if os.path.exists(price):
-                    dfPrice=pd.read_csv(price,sep="\t",index_col=0)
-                    
-                    if LAST_REMOVED_ROWS:
-                        if dfPrice.shape[0] <= LAST_REMOVED_ROWS:
-                            continue
-                        else: 
-                            dfPrice=dfPrice.iloc[0:len(dfPrice)-LAST_REMOVED_ROWS]
-                    dfPrice=dfPrice.tail(500)
-                    
-                    sts = stimeseries(dfPrice)
-
-                    price_change_20d = sts.get_trading_uprange(20)
-                    if price_change_20d < cut_forSort_20d:
-                        #price_change_20d = 0
-                        pass
-                    price_change_60d = sts.get_trading_uprange(60)
-                    if price_change_60d < cut_forSort_20d:
-                        #price_change_60d = 0
-                        pass
-
-
-                    symbols.loc[symbol,"up_tranding_range_20d"]=price_change_20d
-                    symbols.loc[symbol,"up_tranding_range_60d"]=price_change_60d
-
-            if sort_trange>0:
-                symbols = symbols.loc[ symbols["up_tranding_range_20d"]>sort_trange ]
-
-                                 
-            df=symbols
-            df=df.sort_values(["up_tranding_range_20d","up_tranding_range_60d"],ascending=[False,False])
-            print (f"# {df.shape[0]:>5} symbols meet trading range requirement")
-        """        
-        
-        tickers = descriptions(df, dir, file_name, kwargs)
+        # filter and sort securities
+        tickers = descriptions(df, dir, 'file_name', kwargs)
+        tickers.basic_processing()
         tickers.work()
         df = tickers.get_new_descriptions()
 
-        if kwargs["filter_macd_sig"]:
-            filter_macd_sig = kwargs["filter_macd_sig"]
-            mymatch = re.match("(\d+),(\d+)", filter_macd_sig)
-            sspan = 0
-            lspan = 0
-            if mymatch:
-                sspan = int(mymatch.group(1))
-                lspan = int(mymatch.group(2))
-            else:
-                print ("macd input is invalide")
-                sys.exit(1)
-
-            #
-            symbols = df.copy(deep=True)
-            symbols["Sort"]=pd.Series(0,index=symbols.index)
-            for symbol, row in df.iterrows():
-                ratio=1
-                price = dir+"/"+symbol+".txt"
-                if os.path.exists(price):
-                    dfPrice=pd.read_csv(price, sep="\t",parse_dates=['date'], index_col=['date'])
-                    
-                    if LAST_REMOVED_ROWS:
-                        if dfPrice.shape[0] <= LAST_REMOVED_ROWS:
-                            continue
-                        else: 
-                            dfPrice=dfPrice.iloc[0:len(dfPrice)-LAST_REMOVED_ROWS]
-
-                    sts = stimeseries(dfPrice.tail(500))
-                    if weekly:
-                        sts = stimeseries(dfPrice)
-                        sts.to_weekly()                                            
-                    signal = sts.macd_cross_up(sspan, lspan, 3)
-                    
-
-                    """                    
-                    status = 1
-                    if signal[-1]==0 or signal[0]==1:
-                        status = 0
-                    else:
-                        tmp=0
-                        change=0
-                        for s in signal:
-                            if s != tmp:
-                                change+=1
-                                tmp = s
-                        if change >1: status =0
-                    if macd_ref >= 0: status = 0
-                    symbols.loc[symbol,"Sort"]= status
-                    """
-                    
-                    #if macd_ref >= 0: signal = 0
-                    symbols.loc[symbol,"Sort"]= signal
-
-            symbols=symbols.sort_values(["Sort"],ascending=False)
-            symbols=symbols.loc[ symbols['Sort'] > 0 ]
-            df=symbols
-            print (f"# {df.shape[0]:>5} symbols meet macd criteria")
-            
-        if kwargs["filter_stochastic_sig"]:
-            """ filter for oversold (d < cutoff) tickers with stochastic K > D and
-                bullish price action (paction < cutoff)
-                input string: stochastic long term, 
-                              stochastic short term, 
-                              stochastic d cutoff, 
-                              k>d ('all') or k just cross d up ('crs' or any string)
-            """
-            filter_stochastic_sig = kwargs["filter_stochastic_sig"]
-            mymatch = re.match("(\d+),(\d+),(\d+),(\w+)", filter_stochastic_sig)
-            n = 0
-            m = 0
-            c = 20
-            mode = "all"
-            if mymatch:
-                n = int(mymatch.group(1))
-                m = int(mymatch.group(2))
-                c = int(mymatch.group(3))
-                mode = mymatch.group(4)
-            else:
-                print ("stochastic input is invalide")
-                sys.exit(1)
-            symbols = df.copy(deep=True)
-            symbols["STOK"]=pd.Series(100,index=symbols.index)
-            symbols["STOD"]=pd.Series(100,index=symbols.index)
-            symbols["STOC"]=pd.Series(0,index=symbols.index)
-            symbols["BLSH"]=pd.Series(0,index=symbols.index)
-            for symbol, row in df.iterrows():
-                price = dir+"/"+symbol+".txt"
-                if os.path.exists(price):
-                    dfPrice=pd.read_csv(price, sep="\t",parse_dates=['date'], index_col=['date'])
-                    
-                    if LAST_REMOVED_ROWS:
-                        if dfPrice.shape[0] <= LAST_REMOVED_ROWS:
-                            continue
-                        else: 
-                            dfPrice=dfPrice.iloc[0:len(dfPrice)-LAST_REMOVED_ROWS]
-
-                    sts = stimeseries(dfPrice.tail(500))
-                    if weekly:
-                        sts = stimeseries(dfPrice)
-                        sts.to_weekly()
-                    
-                    (symbols.loc[symbol,"STOK"], 
-                     symbols.loc[symbol,"STOD"], 
-                     symbols.loc[symbol,"STOC"],
-                     symbols.loc[symbol,"BLSH"] ) = sts.stochastic_cross(n, m)
-            symbols=symbols.loc[ symbols['STOK'] < c+15 ]
-            symbols=symbols.loc[ symbols['STOD'] < c ]
-            #symbols=symbols.loc[ symbols['BLSH'] < 0.4 ]
-
-            if mode == "all":
-                # count all instances where K>D
-                symbols=symbols.loc[ symbols['STOD'] < symbols['STOK'] ]
-            else:
-                # count instances reflecting transit from K<D to K>D
-                symbols=symbols.loc[ symbols['STOC'] > 0 ]
-            df = symbols
-
-            print (f"# {df.shape[0]:>5} symbols meet stochastic criteria")   
-            
-        if kwargs["two_dragon"]:
-            two_dragon = kwargs["two_dragon"]
-            array = two_dragon.split(',')
-            num_parm = len(array)
-            if num_parm < 3:
-                print ('#  invalid two_dragon value. 3 or 4 integers are required')
-                exit(0)
-            symbols = df.copy(deep=True)
-            symbols["2dragon"]=pd.Series(0,index=symbols.index)
-            for symbol, row in df.iterrows():
-                price = dir+"/"+symbol+".txt"
-                if os.path.exists(price):
-                    dfPrice=pd.read_csv(price,sep="\t",index_col=0)
-                    
-                    if LAST_REMOVED_ROWS:
-                        if dfPrice.shape[0] <= LAST_REMOVED_ROWS:
-                            continue
-                        else: 
-                            dfPrice=dfPrice.iloc[0:len(dfPrice)-LAST_REMOVED_ROWS]
-
-                    dfPrice=dfPrice.tail(500)
-                    dfPrice=cdstk.cstick_sma(dfPrice)
-                    sts = stimeseries(dfPrice)
-                    if num_parm ==3:
-                        symbols.loc[symbol,"2dragon"] = sts.two_dragon(int(array[0]),
-                                                                        int(array[1]),
-                                                                        int(array[2]))
-                    elif num_parm ==4:
-                        symbols.loc[symbol,"2dragon"] = sts.two_dragon(int(array[0]),
-                                                                        int(array[1]),
-                                                                        int(array[2]),
-                                                                        float(array[3]))
-                                                                
-                    
-            symbols=symbols.loc[ symbols['2dragon'] > 0 ]
-            df = symbols
-            print (f"# {df.shape[0]:>5} symbols meet 2dragon criteria({two_dragon})")
-
-        if kwargs["sort_madistance"] >0:
-            """ sort symbols by last close-to-SMA distance
-            """
-            sort_madistance = kwargs["sort_madistance"]
-            symbols = df.copy(deep=True)
-            symbols["Sort"]=pd.Series(0,index=symbols.index)
-            for symbol, row in df.iterrows():
-                ratio=1
-                price = dir+"/"+symbol+".txt"
-                if os.path.exists(price):
-                    dfPrice=pd.read_csv(price, sep="\t",parse_dates=['date'], index_col=['date'])
-                    
-                    if LAST_REMOVED_ROWS:
-                        if dfPrice.shape[0] <= LAST_REMOVED_ROWS:
-                            continue
-                        else: 
-                            dfPrice=dfPrice.iloc[0:len(dfPrice)-LAST_REMOVED_ROWS]
-
-                    sts = stimeseries(dfPrice.tail(500))
-                    if weekly:
-                        sts = stimeseries(dfPrice)
-                        sts.to_weekly()
-                    symbols.loc[symbol,"Sort"]=sts.get_SMAdistance(sort_madistance)
-            df=symbols
-            df=df.sort_values(["Sort"],ascending=True)
-            
-        if kwargs["sort_bbdistance"]:
-            sort_bbdistance = kwargs["sort_bbdistance"]
-            days  = 1
-            cutoff= -10
-            if ',' in sort_bbdistance:
-                list=sort_bbdistance.split(',')
-                cutoff=float(list[0])
-                days  =int(list[1])
-            else:
-                cutoff = float(sort_bbdistance)
-
-            symbols = df.copy(deep=True)
-            symbols["Sort"]=pd.Series(100,index=symbols.index)
-            for symbol, row in df.iterrows():
-                ratio=1
-                price = dir+"/"+symbol+".txt"
-                if os.path.exists(price):
-                    dfPrice=pd.read_csv(price, sep="\t",parse_dates=['date'], index_col=['date'])
-
-                    if LAST_REMOVED_ROWS:
-                        if dfPrice.shape[0] <= LAST_REMOVED_ROWS:
-                            continue
-                        else: 
-                            dfPrice=dfPrice.iloc[0:len(dfPrice)-LAST_REMOVED_ROWS]
-
-                    sts = stimeseries(dfPrice.tail(500))
-                    if weekly:
-                        sts = stimeseries(dfPrice)
-                        sts.to_weekly()
-                        
-                    #bbdist = sts.get_BBdistance()
-                    #if bbdist > sort_bbdistance: continue
-                    #print ( bbdist, sort_bbdistance )
-                    symbols.loc[symbol,"Sort"]=sts.get_BBdistance(days)
-                    
-            df=symbols
-            df=df[ df['Sort'] <= cutoff ]
-            df=df.sort_values(["Sort"],ascending=True)
-            print (f"# {df.shape[0]:>5} symbols meet bollinger-band dist filter/sort({sort_bbdistance})")
-            
-        if kwargs["sort_performance"] >0:
-            """ sort symbols by recent performance
-            """         
-            sort_performance = kwargs["sort_performance"]
-            symbols = df.copy(deep=True)
-            symbols["Sort"]=pd.Series(0,index=symbols.index)
-            for symbol, row in df.iterrows():
-                ratio=1
-                price = dir+"/"+symbol+".txt"
-                if os.path.exists(price):
-                    dfPrice=pd.read_csv(price,sep="\t",index_col=0)
-                    
-                    if LAST_REMOVED_ROWS:
-                        if dfPrice.shape[0] <= LAST_REMOVED_ROWS:
-                            continue
-                        else: 
-                            dfPrice=dfPrice.iloc[0:len(dfPrice)-LAST_REMOVED_ROWS]
-
-                    dfPrice=dfPrice.tail(500)
-                    sts = stimeseries(dfPrice)
-                    symbols.loc[symbol,"Sort"] = sts.get_latest_performance(sort_performance)
-            df=symbols
-            df=df.sort_values(["Sort"],ascending=False)
-            print(df["Sort"])
-
-        if kwargs["sort_earningDate"]:            
-            if "Next EPS Report Date  (yyyymmdd)" in df:
-                df["Next EPS Report Date "] = df["Next EPS Report Date  (yyyymmdd)"]
-                df=df.drop("Next EPS Report Date  (yyyymmdd)", axis=1)
-        
-            if "Next EPS Report Date " in df:
-                """ sort symbols by last earning date
-                """ 
-                df["Next EPS Report Date "]=pd.to_numeric(df["Next EPS Report Date "])
-                df=df.sort_values(["Next EPS Report Date "], ascending=True)
-
-        if kwargs["uptrend"]:
-            """ filter for symbols in uptrend in a specified recent period
-                symbol list will be shortened
-            """
-            uptrend = kwargs["uptrend"]
-            window=0
-            cutoff=0.8
-            blind =0
-            array=[]
-            if ',' in uptrend:
-                array = uptrend.split(',')
-                window=int(array[0])
-                cutoff=float(array[1])
-                if len(array)>=3: blind =int(array[2])
-            else:
-                window=int(uptrend)
-
-            symbols = pd.DataFrame(columns=df.columns)
-            for symbol, row in df.iterrows():
-                price = dir+"/"+symbol+".txt"
-                if os.path.exists(price):
-                    dfPrice=pd.read_csv(price, sep="\t",parse_dates=['date'], index_col=['date'])
-
-                    if LAST_REMOVED_ROWS:
-                        if dfPrice.shape[0] <= LAST_REMOVED_ROWS:
-                            continue
-                        else: 
-                            dfPrice=dfPrice.iloc[0:len(dfPrice)-LAST_REMOVED_ROWS]
-
-                    sts = stimeseries(dfPrice.tail(500))
-                    if weekly:
-                        sts = stimeseries(dfPrice)
-                        sts.to_weekly()
-                    if sts.in_uptrend(window, cutoff, blind)==1:
-                        if filter_ema_slice:
-                            indicator_ceiling=""
-                            indicator_base=""
-                            if ',' in filter_ema_slice:
-                                list=filter_ema_slice.split(',')
-                                indicator_ceiling=list[0]+'MA'
-                                indicator_base   =list[1]+'MA'
-                            else:
-                                indicator_base   =filter_ema_slice+'MA'
-                                
-                            #dfPrice=cdstk.cstick_sma(dfPrice)
-                            dfPrice=sts.df
-                            
-                            sts.sma_multiple()
-                            if sts.cross_up("3MA", indicator_base, int(window/2)) : continue
-                            
-                            if not dfPrice['20MA'][0-window] < dfPrice['20MA'][-1] : continue
-                            if not sandwiched(filter_ema_slice, dfPrice.iloc[-1,:]): continue
-                            
-                        symbols = symbols.append(df.loc[symbol], ignore_index=False)
-            df=symbols
-            print (f"# {df.shape[0]:>5} symbols meet uptrend-{uptrend} criteria")
-
-        if kwargs["filter_madistance"] >0:
-            """ filter for symbols with yesterday's price greater than moving average and then sorted by
-                today's distance to moving average
-                symbol list will be shortened
-            """        
-            filter_madistance = kwargs["filter_madistance"]
-            symbols = pd.DataFrame(columns=df.columns)
-            for symbol, row in df.iterrows():
-                ratio=1
-                price = dir+"/"+symbol+".txt"
-                if os.path.exists(price):
-                    dfPrice=pd.read_csv(price,sep="\t",index_col=0)
-                    
-                    if LAST_REMOVED_ROWS:
-                        if dfPrice.shape[0] <= LAST_REMOVED_ROWS:
-                            continue
-                        else: 
-                            dfPrice=dfPrice.iloc[0:len(dfPrice)-LAST_REMOVED_ROWS]
-
-                    dfPrice=dfPrice.tail(500)
-                    sts = stimeseries(dfPrice)
-                    dist_day_before2 = sts.get_SMAdistance(filter_madistance, -2)
-                    dist_day_before3 = sts.get_SMAdistance(filter_madistance, -3)
-                    if dist_day_before2 > 0 and dist_day_before3 >0:
-                        series = df.loc[symbol].copy(deep=True)
-                        series['Sort'] = sts.get_SMAdistance(filter_madistance, -1)
-                        symbols = symbols.append(series, ignore_index=False)
-            df=symbols
-            df=df.sort_values(["Sort"],ascending=True)
-      
-        # read SPY data
+        # check for SPY data and add it to dataframe as background
         spy =  dir+"/"+"SPY"+".txt"
         ref = ""
         if os.path.exists(spy):
@@ -598,6 +117,7 @@ if __name__ == "__main__":
         losses=0
         total_trade=0
         Rtotal=0
+        
         for sticker, row in df.iterrows():
             row_copy = row.copy(deep=True)
             count+=1
@@ -639,9 +159,16 @@ if __name__ == "__main__":
                 antt = antt + "eday" + str(row["Next EPS Report Date "])
 
             # test existence of data for the given symbol
-            price = dir+"/"+sticker+".txt"
-            if os.path.exists(price):
-                df=pd.read_csv(price, sep="\t",parse_dates=['date'], index_col=['date'])
+            
+            
+            sts_daily = tickers.sts_daily
+            if sticker in sts_daily:
+                sts = sts_daily[sticker]
+                df = sts.df
+            
+            #price = dir+"/"+sticker+".txt"
+            #if os.path.exists(price):
+            #   df=pd.read_csv(price, sep="\t",parse_dates=['date'], index_col=['date'])
 
                 #print(sticker, df.shape)
                 
@@ -654,7 +181,7 @@ if __name__ == "__main__":
 
                 #print(sticker, df.shape)
                            
-                rsi = str(stimeseries(df).get_rsi())[0:4]
+                rsi = str( sts.get_rsi())[0:4]
 
                 #print(sticker, df.shape)
                 
@@ -785,25 +312,17 @@ if __name__ == "__main__":
                     c+=1
                     this_batch[key]=security
                     if len(this_batch)%num_pic_per_file ==0:
-                        draw(file_name, this_batch, c, panel_row, panel_col, to_be_recycled, 
-                             dayspan, gradient, figwidth, figdepth)
+                        make_imgfile(file_name, this_batch, c, panel_row, panel_col, to_be_recycled, 
+                             dayspan, gradient, fig_wid, fig_dep)
                         this_batch={}
                 if len(this_batch)>0:
-                    draw(file_name, this_batch, c, panel_row, panel_col, to_be_recycled, 
-                         dayspan, gradient, figwidth, figdepth)
+                    make_imgfile(file_name, this_batch, c, panel_row, panel_col, to_be_recycled, 
+                         dayspan, gradient, fig_wid, fig_dep)
                     this_batch={}
 
-    def draw(file_name,
-             securities,
-             count,
-             panel_row, panel_col,
-             to_be_recycled,
-             dayspan=200,
-             gradient=9,
-             figwidth=40,
-             figdepth=24,
-             dualscale=False,
-             drawbyrow=False):
+    def make_imgfile(file_name, securities, count, panel_row, panel_col, to_be_recycled,
+             dayspan=200, gradient=9, fig_wid=40, fig_dep=24,
+             dualscale=False, drawbyrow=False):
         
         # remove path from file name
         if '/' in file_name:
@@ -819,7 +338,7 @@ if __name__ == "__main__":
         # chart in the output figure
         recycle = cdstk.draw_many_candlesticks(securities, output,
                                            panel_row, panel_col,
-                                           figwidth, figdepth,
+                                           fig_wid, fig_dep,
                                            dayspan, gradient,
                                            drawbyrow
                                            )
@@ -838,4 +357,4 @@ if __name__ == "__main__":
     # main code
     dir = args.dir
     for list in args.list:
-        draw_list_candlestick(list, **vars(args))
+        chart_securities(list, **vars(args))

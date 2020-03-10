@@ -56,6 +56,36 @@ def file_strip_txt (file):
         name = mymatch.group(1)
     return name
 
+def fix_dateAdded(day):
+    day = day.replace(",", ", ")
+    day = day.replace("Jan", "January")
+    day = day.replace("Feb", "February")
+    day = day.replace("Mar", "March")
+    day = day.replace("Apr", "April")
+    day = day.replace("Jun", "June")
+    day = day.replace("Jul", "July")
+    day = day.replace("Aug", "August")
+    day = day.replace("Sep", "September")
+    day = day.replace("Oct", "October")
+    day = day.replace("Nov", "November")
+    day = day.replace("Dec", "December")
+    return day
+
+def pick_V_G_VGM(series):
+    i = False
+    if (series["Growth Score"] <= "C"):
+        if (series["Value Score"] <= "D"):
+            i = True
+        elif "VGM Score" in series:
+            if series["VGM Score"] == "A":
+                i = True
+    elif "VGM Score" in series:
+        if series["VGM Score"] == "A":
+            i = True
+    return i
+    
+def set_rowcol_num()
+   
 def get_output_filename(input, **kwargs):
     file_name = input
     if kwargs["sample"]:
@@ -108,33 +138,7 @@ def get_output_filename(input, **kwargs):
 
     return file_name
 
-def fix_dateAdded(day):
-    day = day.replace(",", ", ")
-    day = day.replace("Jan", "January")
-    day = day.replace("Feb", "February")
-    day = day.replace("Mar", "March")
-    day = day.replace("Apr", "April")
-    day = day.replace("Jun", "June")
-    day = day.replace("Jul", "July")
-    day = day.replace("Aug", "August")
-    day = day.replace("Sep", "September")
-    day = day.replace("Oct", "October")
-    day = day.replace("Nov", "November")
-    day = day.replace("Dec", "December")
-    return day
 
-def pick_V_G_VGM(series):
-    i = False
-    if (series["Growth Score"] <= "C"):
-        if (series["Value Score"] <= "D"):
-            i = True
-        elif "VGM Score" in series:
-            if series["VGM Score"] == "A":
-                i = True
-    elif "VGM Score" in series:
-        if series["VGM Score"] == "A":
-            i = True
-    return i
 
 """
 def scale(list, max, min):
