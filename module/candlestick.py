@@ -205,21 +205,6 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
     """
     
     # plot 2018 dip / trade war
-    """
-    index = date_to_index(pd.to_datetime("2018-12-26 00:00:00"), df['Date close'])
-    dip_xcoordiante = df.index[index]
-    plt.axvline(x=dip_xcoordiante,color="brown",dashes=[5,10],linewidth=1)
-    index = date_to_index(pd.to_datetime("2018-10-4 00:00:00"), df['Date close'])
-    dip_xcoordiante = df.index[index]
-    plt.axvline(x=dip_xcoordiante,color="brown",dashes=[5,10],linewidth=1)
-
-    index = date_to_index(pd.to_datetime("2019-5-1 00:00:00"), df['Date close'])
-    dip_xcoordiante = df.index[index]
-    plt.axvline(x=dip_xcoordiante,color="brown",dashes=[5,10],linewidth=1)
-    index = date_to_index(pd.to_datetime("2019-6-3 00:00:00"), df['Date close'])
-    dip_xcoordiante = df.index[index]
-    plt.axvline(x=dip_xcoordiante,color="brown",dashes=[5,10],linewidth=1)
-    """
     index1 = date_to_index(pd.to_datetime("2018-12-26 00:00:00"), df['Date close'])
     index2 = date_to_index(pd.to_datetime("2018-10-4 00:00:00") , df['Date close'])
     plt.axvspan(df.index[index1],df.index[index2],color="orange", alpha=0.1)
@@ -228,7 +213,6 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
     index1 = date_to_index(pd.to_datetime("2019-5-1 00:00:00"), df['Date close'])
     index2 = date_to_index(pd.to_datetime("2019-6-3 00:00:00") , df['Date close'])
     plt.axvspan(df.index[index1],df.index[index2],color="orange", alpha=0.1)
-    
     
     # plot 2019 July dip / trade war
     index1 = date_to_index(pd.to_datetime("2019-7-31 00:00:00"), df['Date close'])
@@ -256,17 +240,9 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
     # plot SMA
     df["4. close"].plot( color='black')
     if sample_size > 50: 
-        for days in ma_days[1:-1]:
+        for days in ma_days[1:]:
             MA = str(days)+"MA"
             if MA in df: df[MA].plot()
-        """    
-        df["3MA"].plot()
-        df["20MA"].plot()
-        df["50MA"].plot()
-        df["100MA"].plot()
-        df["150MA"].plot()
-        df["200MA"].plot()
-        """
         
         if sample_size <= 120:
             df['BB20u'].plot(color='#1f77b4')
@@ -350,7 +326,8 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
     
     #
     # write within figure area
-    y_position=0.08
+    interval = 0.11
+    y_position=interval
     if annotation:
         mymatch=re.match("\S+peg([\.\d]+)eday.+", annotation)
         peg=0
@@ -375,9 +352,10 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
                        annotation,
                        fontsize=17, color='blue'
                        )
-        y_position += 0.08
+        y_position += interval
+        
     #
-    # plot price drop compared to 30/120 days ago
+    # plot price change compared to 30/120 days ago
     bleedout_1mon  = bleedout( df.tail(20)["4. close"] )
     bleedout_3mon  = bleedout( df.tail(60)["4. close"] )
     growth_alltime = up( df["4. close"] )
@@ -387,7 +365,7 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
                    f"v{bleedout_1mon}{bleedout_3mon}^{growth_alltime}",
                    fontsize=17, color='blue'
                    )
-    y_position += 0.08
+    y_position += interval
     
     # print sort value if available
     if sort:

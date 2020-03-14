@@ -15,18 +15,23 @@ class descriptions:
         self.kwargs = kwargs
         self.new_file_name = ""
         self.sts_daily = {}
+        
+        self.basic_processing()
+        self.make_header()
+        self.sts_daily = self.read_timeseries()
     
     def get_new_descriptions(self):
         return self.descriptions
         
-    def get_new_file_name(self):
-        return self.new_file_name
-        
     def basic_processing(self):
         """
-        Basic data processing
+        Basic data processing (update self.description)
+        
+        Remove oil and gas related securities (high volatility)
+        Add buy- and sold-dates
+        Sort securities by purchase date followed by security name
         """        
-        df = self.descriptions 
+        df = self.descriptions
         if "Industry" in df:
            df = df[~df["Industry"].str.contains("Oil and Gas")]
         
@@ -53,12 +58,64 @@ class descriptions:
 
         self.descriptions = df
 
+    def make_header(self):
+        """
+        Basic data processing (add columns to self.description)
+        
+        Make chart header for each security (zacks rank, value/growth score, 
+            buy recommendation, long-term growth)
+        Make annotation for each security (PE, PEG and next earning report date)
+        """
+        df = self.descriptions
+        df["header"] = ""
+        df["annotation"] = ""        
+        for sticker, row in df.iterrows():
+            row_copy = row.copy(deep=True)
 
-
-        
-        
-        
+            # prepare figure header
+            header = ""
+            annot  = ""
+            # prepare header for display in chart
+            if "Zacks Rank" in row:
+                header = header + " zr{}".format(str(int(row["Zacks Rank"])))
+            if "Value Score" in row:
+                header = header + "{}/{}".format(row["Value Score"],row["Growth Score"])
+            if "# Rating Strong Buy or Buy" in row and "# of Brokers in Rating" in row:
+                header = header + "br{}/{}".format( int(row["# Rating Strong Buy or Buy"]),
+                                                int(row["# of Brokers in Rating"]) )                                                
+            if "Long-Term Growth Consensus Est." in row:
+                header = header + "ltg{}".format(row["Long-Term Growth Consensus Est."])
+            df.loc[sticker, "header"] = header
+            
+            
+            if "P/E (Trailing 12 Months)" in row:
+                annot = annot + "pe" + str(row["P/E (Trailing 12 Months)"])
+            if "PEG Ratio" in row:
+                annot = annot + "peg" + str(row["PEG Ratio"])
+            if "Next EPS Report Date " in row:
+                annot = annot + "eday" + str(row["Next EPS Report Date "])
+            df.loc[sticker, "annotation"] = annot            
+            
+        self.descriptions = df
+    
+    def read_timeseries(self):
+        dict_sts = {}
+        for symbol, row in self.descriptions.iterrows():
+            file = self.data_dir+"/"+symbol+".txt"
+            if os.path.exists(file):
+                price=pd.read_csv(file,sep="\t",index_col=0)
+                sts = stimeseries(price)               
+                sts.sma_multiple()
+                dict_sts[symbol]=sts
+            else:
+                self.descriptions = self.descriptions.drop(symbol)
+        return dict_sts
+    
     def work(self):
+        """
+        Filter and sort securities based on keyword arguments
+        """    
+    
         if self.kwargs["sort_brokerrecomm"]  and "# Rating Strong Buy or Buy" in self.descriptions:
             self.descriptions = self.descriptions.sort_values(["# Rating Strong Buy or Buy"], 
                                 ascending=False)
@@ -104,19 +161,6 @@ class descriptions:
             del self.kwargs["sort_zacks"]
             
         if len(self.kwargs)>0:
-            # load all price data to dict to iterate through later on
-            dict_sts = {}        
-            for symbol, row in self.descriptions.iterrows():
-                price = self.data_dir+"/"+symbol+".txt"
-                if os.path.exists(price):
-                    price=pd.read_csv(price,sep="\t",index_col=0)              
-                    sts = stimeseries(price)
-                    sts.sma_multiple()
-                    dict_sts[symbol]=sts
-                else:
-                    self.descriptions = self.descriptions.drop(symbol)
-
-            self.sts_daily = dict_sts 
 
             # method sort_trange
             if self.kwargs["sort_trange"]:
@@ -133,12 +177,11 @@ class descriptions:
                 self.descriptions["Sort"] = 0
                 if trange_days>0:
                     for symbol, row in self.descriptions.iterrows():
-                        self.descriptions.loc[symbol, "Sort"] = dict_sts[symbol].get_trading_uprange(trange_days)
+                        self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].get_trading_uprange(trange_days)
                 if trange_cutoff >=0:
                     self.descriptions = self.descriptions.loc[ self.descriptions["Sort"]>=trange_cutoff ]
                 self.descriptions = self.descriptions.sort_values(["Sort"], ascending=False)
                 print (len(self.descriptions), " symbols meet user criterion")
-
 
             # method filter_macd_sig
             if self.kwargs["filter_macd_sig"]:
@@ -159,11 +202,10 @@ class descriptions:
                 
                 self.descriptions["Sort"] = 0
                 for symbol in self.descriptions.index:
-                    self.descriptions.loc[symbol, "Sort"] = dict_sts[symbol].macd_cross_up(sspan, lspan, 3)    
+                    self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].macd_cross_up(sspan, lspan, 3)    
                 self.descriptions = self.descriptions.loc[ self.descriptions["Sort"]>0 ]
                 print (len(self.descriptions), " symbols meet user criterion")
 
-            #"""
             if self.kwargs["sort_madistance"] >0:
                 #sort symbols by last close-to-SMA distance
                 
@@ -171,9 +213,8 @@ class descriptions:
             
                 self.descriptions["Sort"] = 0
                 for symbol in self.descriptions.index:
-                    self.descriptions.loc[symbol, "Sort"] = dict_sts[symbol].get_SMAdistance(sort_madistance)
+                    self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].get_SMAdistance(sort_madistance)
                 self.descriptions = self.descriptions.sort_values(["Sort"], ascending=True)
-            #"""
 
             # method filter based on stochastic signal
             if self.kwargs["filter_stochastic_sig"]:
@@ -196,7 +237,7 @@ class descriptions:
                     sys.exit(1)
 
                 for symbol in self.descriptions.index:
-                    (k, d, cross, bullish) = dict_sts[symbol].stochastic_cross(n, m)
+                    (k, d, cross, bullish) = self.sts_daily[symbol].stochastic_cross(n, m)
                     status = True
                     if k>cutoff+15 or d>cutoff:
                         status = False
@@ -222,7 +263,7 @@ class descriptions:
                 
                 self.descriptions["Sort"] = 0
                 for symbol in self.descriptions.index:
-                    self.descriptions.loc[symbol, "Sort"] = dict_sts[symbol].two_dragon(*array2)    
+                    self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].two_dragon(*array2)    
                 self.descriptions = self.descriptions.loc[ self.descriptions["Sort"]>0 ]
 
                 print ("# {:>5} symbols meet 2dragon criteria {}".format( len(self.descriptions), two_dragon ) )
@@ -246,7 +287,7 @@ class descriptions:
             
                 self.descriptions["Sort"] = 0
                 for symbol, row in self.descriptions.iterrows():
-                    self.descriptions.loc[symbol, "Sort"] = dict_sts[symbol].get_referenced_change(reference_date, days)
+                    self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].get_referenced_change(reference_date, days)
                     
                 self.descriptions = self.descriptions.sort_values(["Sort"], ascending=True)
                 self.descriptions["Date Added"] = reference_date
@@ -261,41 +302,37 @@ class descriptions:
             
                 self.descriptions["Sort"] = 0
                 for symbol, row in self.descriptions.iterrows():
-                    self.descriptions.loc[symbol, "Sort"] = dict_sts[symbol].get_BBdistance(days)
+                    self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].get_BBdistance(days)
                 
                 self.descriptions = self.descriptions.loc[ self.descriptions["Sort"] <= cutoff ]
                 self.descriptions = self.descriptions.sort_values(["Sort"], ascending=True)
-            #"""
 
             if self.kwargs["sort_performance"]:
                 sort_performance = self.kwargs["sort_performance"]
             
                 self.descriptions["Sort"] = 0
                 for symbol in self.descriptions.index:
-                    self.descriptions.loc[symbol, "Sort"] = dict_sts[symbol].get_latest_performance(sort_performance)
+                    self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].get_latest_performance(sort_performance)
                 
                 self.descriptions = self.descriptions.sort_values(["Sort"], ascending=False)
-            #"""
             
-            #"""
             if self.kwargs["uptrend"]:
                 uptrend = self.kwargs["uptrend"]
                 args = uptrend.split(',')
 
                 self.descriptions["Sort"] = 0
                 for symbol in self.descriptions.index:
-                    self.descriptions.loc[symbol, "Sort"] = dict_sts[symbol].in_uptrendx(*args)
+                    self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].in_uptrendx(*args)
                 
                 self.descriptions = self.descriptions.loc[ self.descriptions["Sort"] >0 ]
                 print ("# {:>5} symbols meet uptrend criteria {}".format( len(self.descriptions), uptrend ) )
-            #"""
                 
             if self.kwargs["filter_ema_slice"]:
                 filter_ema_slice = int(self.kwargs["filter_ema_slice"])
                 
                 self.descriptions["Sort"] = False
                 for symbol in self.descriptions.index:
-                    self.descriptions.loc[symbol, "Sort"] = dict_sts[symbol].touch_down(filter_ema_slice)
+                    self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].touch_down(filter_ema_slice)
                 
                 self.descriptions = self.descriptions.loc[ self.descriptions["Sort"] ]
                 print ("# {:>5} symbols meet EMA slice criteria {}".format( len(self.descriptions), filter_ema_slice ) )

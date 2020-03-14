@@ -83,8 +83,6 @@ def pick_V_G_VGM(series):
         if series["VGM Score"] == "A":
             i = True
     return i
-    
-def set_rowcol_num()
    
 def get_output_filename(input, **kwargs):
     file_name = input

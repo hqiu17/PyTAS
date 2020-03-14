@@ -196,7 +196,6 @@ class stimeseries:
             
         return status
     
-    
     #def two_dragon(self, MAdays1, MAdays2, TRNDdays, cutoff=0.8):
     def two_dragon(self, *args):
         """ Test uptrend defined by 2 moving average indicators (internal version).
@@ -587,7 +586,6 @@ class stimeseries:
         else:
             return True
 
-
     def stay_up(self, indicator1, indicator2, days):
         #print ('*', days)
         df=self.df.copy(deep=True)
@@ -608,8 +606,7 @@ class stimeseries:
             if self.stay_up('3MA', indicator, days):
                 status = True
         return status
-
-            
+           
     def get_referenced_change(self, reference_date, days):
         self.df["date"] = self.df.index
         reference_index = date_to_index(pd.to_datetime(reference_date), self.df["date"])
@@ -628,7 +625,3 @@ class stimeseries:
         else:
             ratio=(price_examine/date_added - price_date0)/price_date0
         return ratio
-
-    
-    
-    
