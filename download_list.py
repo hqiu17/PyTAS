@@ -1,6 +1,4 @@
 #!/usr/local/bin/python
-# put all downloaded price data into a common dir: daliyPrice
-#
 
 import re
 import os
@@ -8,50 +6,40 @@ import sys
 import time
 import argparse
 from datetime import datetime
-from alpha_vantage.timeseries import TimeSeries
 import module.utility as utility
-import shutil, errno
 
 
 def get_key(file):
-    """
-    Read a key from input file
+    """Read a key from input file
     
-    Argument:
-        file: a text file containing a key
-    Return:
-        return a key string
+    Args:
+        file (str): a text file containing a key
+
+    Returns:
+        mykey (str): return a key string
     """
     try:
-        fh=open(file,"r")
+        fh = open(file, "r")
     except:
-        print (f"Error with openning {file}, ", sys.exc_info()[0])
+        print (f"Error with opening {file}, ", sys.exc_info()[0])
         raise
         
-    mykey=""
+    key = ""
     for line in fh:
         if line.strip():
-            mykey = line
+            key = line
             break
-    return mykey    
+    return key
 
-def copyanything(src, dst):
-    try:
-        shutil.copytree(src, dst)
-    except OSError as exc:                   # python >2.5
-        if exc.errno == errno.ENOTDIR:
-            shutil.copy(src, dst)
-        else: raise
 
 def get_filecreation_date(filepath):
-    """
-    Get a creation time for a filepath
+    """Get a creation time for a filepath
     
-    Argument:
+    Args:
         filepath : a path of a file
-    Return:
-        date of creation in code   : such as 20190801
-        date of creation in weekday: such as 1 for Tuesday
+    Returns:
+        a code string for date of creation: such as 20190801
+        a code string for weekday of creation: such as 1 for Tuesday
     """
 
     time_stamp=os.stat(filepath).st_ctime
@@ -59,14 +47,17 @@ def get_filecreation_date(filepath):
     date_code=get_datecode(datetime_obj)
     return date_code, datetime_obj.weekday()
 
+
 def get_datecode(datetime_obj):
-    """
-    Turn datetime object (e.g., for 2019, 8, 1) into numeric code 20190801
+    """Turn datetime object (e.g., for 2019, 8, 1) into numeric
+       code 20190801
     
-    Argument:
+    Args:
         datetime_obj: a daytime object
-    Return:
-        a code string: concatenate digits for year, month and day (eg, 20190801)
+
+    Returns:
+        date_code (str): concatenate digits for year, month and day
+        (eg, 20190801)
     """
 
     date_code=datetime_obj.year*10000
@@ -74,131 +65,219 @@ def get_datecode(datetime_obj):
     date_code=date_code + 100 + datetime_obj.day
     date_code=date_code - 10100
     return date_code
-    
+
+
 def download_asymbol(symbol, outfile):
-    """
-    Turn datetime object (e.g., for 2019, 8, 1) into numeric code 20190801
+    """Download timeseries data and write to local file
     
-    Arguments:
-        symbol : a string representing for the name of a security
+    Args:
+        symbol : a string representing the name of a security
         outfile: a outfile where the price is written to
 
-    Return:
+    Returns:
         status: status equals 1 on failure for whatever reasons
     """
 
     status = 0
     try:
-        prices, metadata = utility.get_daliyPrices_inPandas(ts, symbol)
+        prices, metadata = utility.get_daliyprices_inpandas(ts, symbol)
         prices.to_csv(outfile, sep="\t")
     except:
-        #time.sleep(12)
+        # Just flag it. Do not raise or exit for individual failure
         status = 1
     return status
+
+
+def maneuver_asymbol(ticker, outfile, safenest, num=0, pause=11):
+    """Manage download file for a security (ticker).
+
+       If prior download file exists, move it to storage directory
+       before launching download.
     
-def download_alist(list):   # fresh, stay, dir,  symbol_collection
+    Arguments:
+        ticker (str): name of security
+        outfile (path): outfile where download will be written into
+        safenest (path): directory where prior download to be stashed
+        num (int): a number to print for purpose of progress monitor
+        pause (int): time (in second) to pause after a download
+    """
+    
+    msg = ""
+    # backup outfile
+    if os.path.isfile(outfile):
+        outfile_basename = os.path.basename(outfile)
+        outfile_backup   = os.path.join(safenest, outfile_basename)
+        os.rename(outfile, outfile_backup)
+        msg = "; previous download is relocated"
+    
+    # download data for ticker into outfile
+    print (f"# {num:>4} {ticker:<6} is to be done", end="\r")
+    status = download_asymbol(ticker, outfile)
 
+    print (" "*27, end="\r")
+    if status == 1 : 
+        print (f"# {num:>4} {ticker:<6} remote retrieval failure")
+    else:
+        print (f"# {num:>4} {ticker:<6} is done{msg}")
+
+
+def get_creation_status(filepath):
+    """Figure out creation status for a given file
+    
+    Args:
+        filepath : query file
+        verbose: whether or not print out file creation details
+
+    Returns:
+        status (boolean): True for done and False for not done yet
+        file_datecode (str): code for file download date
+    """
+
+    status = False
+    today_datecode = get_datecode(datetime.today())
+    today_weekdaycode = datetime.today().weekday()
+    file_datecode, file_weekdaycode = get_filecreation_date(filepath)
+
+    diff_datecode = today_datecode - file_datecode
+    if (diff_datecode) == 0:
+        status = True
+    elif today_weekdaycode == 5 and (diff_datecode) == 1:
+        # On Saturday with existing download created on this Friday
+        status = True
+    elif today_weekdaycode == 6 and (diff_datecode) <= 2:
+        # On Sunday with existing download created on this Friday or Saturday
+        status = True
+    return status, file_datecode
+
+
+def download_alist(file, directory, pause, refresh=False, stay=False):
+    """Download securities listed in input file
+
+    Args:
+        file (path): path to a file
+        directory (path): path to a directory
+        pause (int): time to pause in second
+        refresh (boolean): re-download everthing
+        stay (boolean): acknowledge existing download
+    """
+
+    # open input file containing security list
     try:
-        fh=open(list,"r")
+        fh = open(file, "r")
     except:
-        print (f"Error with openning {list}, ", sys.exc_info()[0])
+        print (f"Error with opening {list}, ", sys.exc_info()[0])
         raise
-
+    
+    # loop through the list
     for num, line in enumerate(fh):
         # remove header line
-        if line.startswith('Symbol'): continue            
-        if line.startswith('Ticker'): continue
+        if line.startswith('Symbol'):
+            continue
+        if line.startswith('Ticker'):
+            continue
         
-        #
+        # extract security name and set output file name
         ticker=""
         mymatch = re.match(r'(\S+)\s.*', line)
         if mymatch:
             ticker = mymatch.group(1)
-        if ticker and not '.' in ticker:
-            outfile = dir+"/"+ticker+".txt"
+        if ticker and '.' not in ticker:
+            outfile = os.path.join(directory, ticker+".txt")
             
-            if refresh:
-                print (f"# {num:>3} {ticker:<6} is to be done")#,end="\r", flush=True)
-                #download_asymbol(ticker)
-                
-            # if outfile already exists
-            elif os.path.isfile(outfile):
-                datecode, weekday = get_filecreation_date(outfile)
-                # existing download file is created on the same day, do nothing
-                if (today_datecode-datecode) == 0:
-                    print (f"# {num:>3} {ticker:<6} was done [today download] {datecode}")#, end="\r", flush=True)
-                # on Saturday with existing download created on this friday, do nothing
-                elif today_weekday == 5 and (today_datecode-datecode)==1:
-                    print (f"# {num:>3} {ticker:<6} was done [friday download]")#, end="\r", flush=True)
-                # on Sunday with existing download created on this Friday or Saturday, do nothing
-                elif today_weekday == 6 and (today_datecode-datecode)<=2:
-                    print (f"# {num:>3} {ticker:<6} was done [friday/Saturday download]")#, end="\r", flush=True)
-                # follow stay instruction to keep all existing download
-                elif stay:
-                    print (f"# {num:>3} {ticker:<6} was done [stay]")#, end="\r", flush=True)
-                # existing download is created on other days
+            # if output file exits, test if it is outdated
+            if os.path.isfile(outfile):
+                # acknowledge all prior download files
+                # skip download missions
+                if stay:
+                    print (f"# {num:>4} {ticker:<6} has been done [stay]")
+                    continue
+                # act based on download date of prior download file
                 else:
-                    print (f"# {num:>3} {ticker:<6} is to be done; previous download is relocated")#,end="\r", flush=True)
-                    
-                    # move old download to elsewhere
-                    os.rename(outfile, symbol_collection+"/"+ticker+".txt")
-                    status = download_asymbol(ticker, outfile)
-                    if status == 1 : print (f"# {num:>3} {ticker:<6} is not found !")
-                    time.sleep(11)
-            # if not existing download is found, then engage download
+                    status, datecode = get_creation_status(outfile)
+                    if status:
+                        # ignore all existing output file
+                        # redone all download missions
+                        if refresh:
+                            maneuver_asymbol(ticker, outfile, storage, num)
+                            time.sleep(pause)
+                        # download has been done. do nothing
+                        else:
+                            print (f"# {num:>4} {ticker:<6} "
+                                   f"has been done on {datecode}")
+                    else:
+                        maneuver_asymbol(ticker, outfile, storage, num)
+                        time.sleep(pause)
+            # if no prior download is found, then download
             else:
-                print (f"# {num:>3} {ticker:<6} is to be done")#,end="\r", flush=True)
-                status = download_asymbol(ticker, outfile)
-                if status == 1 : print (f"# {num:>3} {ticker:<6} is not found !")
-                time.sleep(11)
-
+                #print (f"# {num:>4} {ticker:<6} is to be done")
+                maneuver_asymbol(ticker, outfile, storage, num)
+                time.sleep(pause)
 
     fh.close()
-    print ("done with ", list)
-
+    print ("done with ", file)
 
 
 if __name__ == "__main__":
 
-
-    text= "Given a symbol list, draw candlesticks for each of item"
-    parser = argparse.ArgumentParser(description = text)
-    parser.add_argument("list",
+    # set up argument parser
+    text= "Given a list of securites, download their daily price data " \
+          "from Alpha Vantage"
+    parser = argparse.ArgumentParser(description=text)
+    parser.add_argument("securities",
                         nargs='*',
-                        help=": a file containing a list of symbol")
-    parser.add_argument("--key",  help=": a file containing the key")
+                        help=": file(s) containing securities (one per row)")
+    parser.add_argument("--key",
+                        help=": file containing a Alpha Vantage API key")
     parser.add_argument("--dir" ,
-                        default="/Users/air/watchlist/daliyPrice",
-                        help=": directory storing all downloaded price data (default='daliyPrice')")
-    parser.add_argument("--refresh", help=": ignore existing download files",
+                        default="./daily",
+                        help=": directory storing all downloaded data"
+                             "(default='./daily')")
+    parser.add_argument("--refresh", 
+                        help=": ignore existing download files",
                         action='store_true')
-    parser.add_argument("--stay", help=": skip symbols with existing download files",
+    parser.add_argument("--stay", 
+                        help=": skip securities with prior download"
+                             "files regardless of their creation date",
                         action='store_true')
+    parser.add_argument("--backup",
+                        default=".avbackup",
+                        help=": backup directory to hold all previous"
+                             "downloads (default='./avbackup')")
+    parser.add_argument("--pause",
+                        default=11,
+                        type=int,
+                        help=": time to pause after each download "
+                             "(default=11)")
 
-    dir = 'daliyPrice'
+    # get parser ready
+    if len(sys.argv)==1: parser.print_help(sys.stderr); sys.exit(1)
     args=parser.parse_args()
-    
-     
-    if args.dir:
-        dir = args.dir            
-        utility.make_dir(dir)
+
+    # population key parameters
+    directory = args.dir
+    storage = args.backup
+    stay = args.stay
+    refresh = args.refresh
+    pause = args.pause
 
     if args.key:
         mykey=get_key(args.key)
         ts = utility.get_timeseries(mykey)
+    else:
+        print("A API key is required in order to download data. "
+              "A free key can be requested from Alpha Vantage "
+              "(https://www.alphavantage.co/support/#api-key)"
+              )
+        parser.print_help(sys.stderr)
+        sys.exit(1)
 
-    refresh = False
-    refresh = args.refresh
+    # set up directories
+    utility.make_dir(directory)
+    utility.make_dir(storage)
 
-    stay = False
-    stay = args.stay
 
-    symbol_collection = "names.allinone"
-
-    today_datecode = get_datecode(datetime.today())
     today_weekday  = datetime.today().weekday()
     print(str(today_weekday+1), datetime.today())
 
-    for list in args.list:
-        download_alist(list)
-    
+    for security in args.securities:
+        download_alist(security, directory, pause, refresh, stay)

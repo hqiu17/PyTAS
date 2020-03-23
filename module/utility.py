@@ -1,62 +1,105 @@
 #!/Users/air1/anaconda3/bin/python
-# take zacks rank as input
-# put all downloaded price data into a common dir: daliyPrice
-#
 
-import re
 import os
 import sys
 import time
 import pandas as pd
-
 from alpha_vantage.timeseries import TimeSeries
 
 
+def get_delimiter(file):
+    """Get delimiter used inside of an input file based on file suffix
+
+    Args:
+        file (str): a file
+    Returns:
+        delimiter (char): the actual delimiter (eg, ',' and '\t')
+    """
+    delimiter = ""
+    if file.endswith('.csv') or file.endswith('.CSV'):
+        delimiter = ','
+    elif file.endswith('.tsv') or file.endswith('.TSV'):
+        delimiter = "\t"
+    return delimiter
+
+
 def get_timeseries(key):
-    ts = TimeSeries(
-                    key,
-                    output_format='pandas',
-                    indexing_type='date'
-                    )
+    """Set up a timeseries object with output format and indexing
+       type setups
+
+    Args:
+        key (str): alpha vantage API key
+                   (https://www.alphavantage.co/support/#api-key)
+    Returns:
+        ts (timeseries object): a timeseries object
+    """
+
+    ts = TimeSeries(key, output_format='pandas', indexing_type='date')
     return ts
 
-def get_daliyPrices_inPandas(timeseries, ticker):
+
+def get_daliyprices_inpandas(timeseries, aticker):
+    """Retrieve timeseries data from alpha vantage
+
+    Args:
+        timeseries: a Timeseries object
+        aticker (str): name of a security
+
+    Returns:
+        data (df): a pandas dataframe holding the timeseries data
+        meta_data (dict): meta-data of the downloaded timeseries
+    """
+
     data, meta_data = timeseries.get_daily(
-                                   symbol=ticker,
-                                   outputsize='full'
-                                   )
+        symbol=aticker,
+        outputsize='full'
+    )
     return data, meta_data
 
-def setup_outdir (file):
-    """
-        substract dir name from file name (i.e., remove '.txt')
-        and create dir if no already exists
-        retrun dir name
-    """
-    mymatch = re.match(r'^(\S+).txt', file)
-    if mymatch:
-        dir = mymatch.group(1)
+
+# def setup_outdir(file):
+#     """
+#         substract dir name from file name (i.e., remove '.txt')
+#         and create dir if no already exists
+#         retrun dir name
+#     """
+#     mymatch = re.match(r'^(\S+).txt', file)
+#     if mymatch:
+#         dir = mymatch.group(1)
+#     else:
+#         dir = file + ".dir"
+#
+#     make_dir(dir)
+#     return dir
+
+
+def make_dir(directory):
+    """Create a directory"""
+
+    if not os.path.exists(directory):
+        try:
+            os.mkdir(directory)
+        except:
+            print(f"Error with creating directory {directory}, "
+                  f"", sys.exc_info()[0])
+            raise
+        else:
+            print("directory ", dir, " is created")
     else:
-        dir = file + ".dir"
+        print("directory ", dir, " already exists")
 
-    make_dir(dir)
-    return dir
 
-def make_dir (dir):
-    if not os.path.exists (dir):
-        os.mkdir(dir)
-        print ("directory ", dir,  " is created")
-    else:
-        print ("directory ", dir,  " already exists")
+# def file_strip_txt(file):
+#     name=file
+#     mymatch = re.match(r'^(\S+)(?:.txt)+', file)
+#     if mymatch:
+#         name = mymatch.group(1)
+#     return name
 
-def file_strip_txt (file):
-    name=file
-    mymatch = re.match(r'^(\S+)(?:.txt)+', file)
-    if mymatch:
-        name = mymatch.group(1)
-    return name
 
-def fix_dateAdded(day):
+def fix_date_added(day):
+    """Reword months"""
+
     day = day.replace(",", ", ")
     day = day.replace("Jan", "January")
     day = day.replace("Feb", "February")
@@ -71,116 +114,82 @@ def fix_dateAdded(day):
     day = day.replace("Dec", "December")
     return day
 
-def pick_V_G_VGM(series):
-    i = False
-    if (series["Growth Score"] <= "C"):
-        if (series["Value Score"] <= "D"):
-            i = True
-        elif "VGM Score" in series:
-            if series["VGM Score"] == "A":
-                i = True
-    elif "VGM Score" in series:
-        if series["VGM Score"] == "A":
-            i = True
-    return i
-   
-def get_output_filename(input, **kwargs):
-    file_name = input
+
+# def pick_V_G_VGM(series):
+#     i = False
+#     if (series["Growth Score"] <= "C"):
+#         if (series["Value Score"] <= "D"):
+#             i = True
+#         elif "VGM Score" in series:
+#             if series["VGM Score"] == "A":
+#                 i = True
+#     elif "VGM Score" in series:
+#         if series["VGM Score"] == "A":
+#             i = True
+#     return i
+
+
+def get_output_filename(infile, **kwargs):
+    """Generate output file name from infile name based keyward args"""
+
+    file_name = infile
     if kwargs["sample"]:
-        file_name = file_name + ".hist_"+ kwargs["sample"]
+        file_name = file_name + ".hist_" + kwargs["sample"]
     if kwargs["filterOnly"]:
         file_name = file_name + ".filtered"
     if kwargs["vgm"]:
         file_name = file_name + ".cvg"
-    if kwargs["blind"] >0:
-        file_name = file_name + ".bld"  + str(kwargs["blind"])
+    if kwargs["blind"] > 0:
+        file_name = file_name + ".bld" + str(kwargs["blind"])
     if kwargs["uptrend"]:
-        file_name = file_name + ".cup"  + kwargs["uptrend"].replace(',','-')
-    if kwargs["cutBrokerbyRatio"]>0:
-        file_name = file_name + ".cbr"  + str(int(kwargs["cutBrokerbyRatio"]*100))
-    if kwargs["cutBrokerbyCount"]>0:
-        file_name = file_name + ".cbc"  + str(int(kwargs["cutBrokerbyCount"]*100))
+        file_name = file_name + ".cup" + kwargs["uptrend"].replace(',', '-')
+    if kwargs["cutBrokerbyRatio"] > 0:
+        file_name = file_name + ".cbr" + str(int(kwargs["cutBrokerbyRatio"] * 100))
+    if kwargs["cutBrokerbyCount"] > 0:
+        file_name = file_name + ".cbc" + str(int(kwargs["cutBrokerbyCount"] * 100))
     if kwargs["sort_zacks"]:
-        file_name = file_name + ".szk"  + kwargs["sort_zacks"].replace(',','')
+        file_name = file_name + ".szk" + kwargs["sort_zacks"].replace(',', '')
     elif kwargs["sort_trange"]:
-        file_name = file_name + ".str"  + kwargs["sort_trange"].replace(',','_')
-    if kwargs["sort_madistance"] >0:
-        file_name = file_name + ".sma"  + str(kwargs["sort_madistance"])
+        file_name = file_name + ".str" + kwargs["sort_trange"].replace(',', '_')
+    if kwargs["sort_madistance"] > 0:
+        file_name = file_name + ".sma" + str(kwargs["sort_madistance"])
     if kwargs["sort_bbdistance"]:
-        file_name = file_name + ".sbd"  + kwargs["sort_bbdistance"].replace(',','_')
+        file_name = file_name + ".sbd" + kwargs["sort_bbdistance"].replace(',', '_')
     if kwargs["sort_brokerrecomm"]:
         file_name = file_name + ".sbr"
-    if kwargs["sort_performance"]>0:
-        file_name = file_name + ".spfmc"+ str(int(kwargs["sort_performance"]))
+    if kwargs["sort_performance"] > 0:
+        file_name = file_name + ".spfmc" + str(int(kwargs["sort_performance"]))
     if kwargs["sort_industry"]:
         file_name = file_name + ".sid"
     if ',' in kwargs["sort_sink"]:
-        file_name = file_name + ".ssk" + kwargs["sort_sink"].replace(',','_')
+        file_name = file_name + ".ssk" + kwargs["sort_sink"].replace(',', '_')
     if kwargs["sort_earningDate"]:
         file_name = file_name + ".sed"
-    if kwargs["filter_madistance"]>0:
-        file_name = file_name + ".fma"  + str(kwargs["filter_madistance"])
+    if kwargs["filter_madistance"] > 0:
+        file_name = file_name + ".fma" + str(kwargs["filter_madistance"])
     if kwargs["filter_macd_sig"]:
-        file_name = file_name + ".macd" + kwargs["filter_macd_sig"].replace(',','-')
+        file_name = file_name + ".macd" + kwargs["filter_macd_sig"].replace(',', '-')
     if kwargs["filter_stochastic_sig"]:
-        file_name = file_name + ".stks" + kwargs["filter_stochastic_sig"].replace(',','-')
-    if kwargs["filter_ema_slice"] :
-        file_name = file_name + ".mslc" + kwargs["filter_ema_slice"].replace(',','-')
+        file_name = file_name + ".stks" + kwargs["filter_stochastic_sig"].replace(',', '-')
+    if kwargs["filter_ema_slice"]:
+        file_name = file_name + ".mslc" + kwargs["filter_ema_slice"].replace(',', '-')
     if kwargs["two_dragon"]:
-        file_name = file_name + ".2drgn"+ kwargs["two_dragon"].replace(',','-')
-        
-    if kwargs["weekly"] :
+        file_name = file_name + ".2drgn" + kwargs["two_dragon"].replace(',', '-')
+
+    if kwargs["weekly"]:
         file_name = file_name + ".wkly"
-    if kwargs["weeklyChart"] :
+    if kwargs["weeklyChart"]:
         file_name = file_name + ".wklyc"
 
     return file_name
 
 
-
-"""
-def scale(list, max, min):
-    data_max=""
-    data_min=""
-        for array in list:
-            max = array.max()
-            min = array.min()
-            if max > data_max: data_max = max
-            if min < data_min: data_min = min
-"""    
-
-if __name__ == "__main__":
-
-    ts = get_timeseries()
-    
-    list = sys.argv[1]
-    fh=open(list, "r")
-    #dir=setup_outdir(list)
-    dir = "daliyPrice01"
-    make_dir(dir)
-    
-
-
-    data = pd.read_csv(list,sep="\t")
-    #if 'Date Added' not in data.columns:
-    for index, row in data.iterrows():
-        ticker = row['Symbol']
-        addate = row['Date Added']
-        addate = fix_dataAdded(addate)
-        
-        if ticker:
-            outfile = dir+"/"+ticker+".txt"
-        if os.path.isfile(outfile):
-            #if os.stat(outfile).st_size:
-            print ("# ", index, " was done: ", ticker)
-        else:
-            print ("# ", index, " is to be done: ", ticker)
-            
-            prices, metadata = get_daliyPrices_inPandas(ts, ticker)
-            prices['Date Added'] = addate
-            prices.to_csv(outfile, sep="\t")
-            time.sleep(12)
-
-
-
+# def scale(list, max, min):
+#     data_max=""
+#     data_min=""
+#         for array in list:
+#             max = array.max()
+#             min = array.min()
+#             if max > data_max: data_max = max
+#             if min < data_min: data_min = min
 
