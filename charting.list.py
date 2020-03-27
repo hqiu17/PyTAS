@@ -93,7 +93,7 @@ def chart_securities(file, **kwargs):
     to_be_recycled = []
 
     # filter and sort securities
-    tickers = descriptions(df, dir, 'file_name', kwargs)
+    tickers = descriptions(df, dir, kwargs)
     tickers.work()
     df = tickers.get_new_descriptions()
 

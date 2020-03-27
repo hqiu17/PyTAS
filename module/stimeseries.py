@@ -1,3 +1,4 @@
+import re
 import numpy as np
 import pandas as pd
 from module.candlestick import date_to_index
@@ -607,21 +608,59 @@ class stimeseries:
                 status = True
         return status
            
-    def get_referenced_change(self, reference_date, days):
+#     def get_referenced_change(self, reference_date, days):
+#         self.df["date"] = self.df.index
+#         reference_index = date_to_index(pd.to_datetime(reference_date), self.df["date"])
+#         price_date0 = self.df["4. close"][reference_index]+ 0.00001
+#         price_examine=0
+#         date_added = 0
+#         for i in range(reference_index+1, reference_index+days+1, 1):
+#             #print (i, dfPrice.shape[0])
+#             if i > (self.df.shape[0]-1): break
+#             date_added = date_added + 1
+#             #print (price_date0, self.df["4. close"][i] )
+#             price_examine += self.df["4. close"][i]
+#             #print (date_added, price_examine)
+#         if date_added==0 or price_examine==0:
+#             ratio = 100
+#         else:
+#             ratio=(price_examine/date_added - price_date0)/price_date0
+#         return ratio
+
+    def get_referenced_change(self, reference_date, subject):
+        ratio = ""
+        
+        # set reference date
         self.df["date"] = self.df.index
         reference_index = date_to_index(pd.to_datetime(reference_date), self.df["date"])
         price_date0 = self.df["4. close"][reference_index]+ 0.00001
-        price_examine=0
-        date_added = 0
-        for i in range(reference_index+1, reference_index+days+1, 1):
-            #print (i, dfPrice.shape[0])
-            if i > (self.df.shape[0]-1): break
-            date_added = date_added + 1
-            #print (price_date0, self.df["4. close"][i] )
-            price_examine += self.df["4. close"][i]
-            #print (date_added, price_examine)
-        if date_added==0 or price_examine==0:
-            ratio = 100
+        
+        # handle a single subject date
+        if '-' in subject:
+            mymatch = re.match(r'\d+\-\d+\-\d+', subject)
+            if mymatch:
+                subject_index = date_to_index(pd.to_datetime(subject), 
+                                                self.df["date"])
+                price_subject = self.df["4. close"][subject_index]
+                ratio = (price_subject - price_date0)/price_date0
+            else:
+                print("x-> invalid input {reference_date},{subject}")
+                exit(0)
+        # handle multiple subject dates
         else:
-            ratio=(price_examine/date_added - price_date0)/price_date0
+            subject = int(subject)        
+            price_examine=0
+            date_added = 0
+            for i in range(reference_index+1, reference_index+subject+1, 1):
+                #print (i, dfPrice.shape[0])
+                if i > (self.df.shape[0]-1): break
+                date_added = date_added + 1
+                #print (price_date0, self.df["4. close"][i] )
+                price_examine += self.df["4. close"][i]
+                #print (date_added, price_examine)
+            if date_added==0 or price_examine==0:
+                ratio = 100
+            else:
+                ratio=(price_examine/date_added - price_date0)/price_date0
+                
         return ratio
