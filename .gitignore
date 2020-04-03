@@ -1,4 +1,5 @@
 .DS_Store
 .pyc
+__pycache__/
 module/__pycache__/
 module/.DS_Store
