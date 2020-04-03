@@ -223,14 +223,14 @@ class AttributeTable:
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
                 print(len(self._attribute_table), " symbols meet user criterion")
 
-            if self.kwargs["sort_madistance"] > 0:
+            if self.kwargs["sort_ema_distance"] > 0:
                 # sort symbols by last close-to-SMA distance
 
-                sort_madistance = self.kwargs["sort_madistance"]
+                sort_ema_distance = self.kwargs["sort_ema_distance"]
 
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_SMAdistance(sort_madistance)
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_SMAdistance(sort_ema_distance)
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
 
             # method filter based on stochastic signal

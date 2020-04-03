@@ -80,7 +80,7 @@ def get_parsed(args):
                         type=str, default="")
     parser.add_argument("-spm", "--sort_performance",   help=": sort by ratio of price down relative to reference date",
                         type=int, default=0)
-    parser.add_argument("-smd", "--sort_madistance",    help=": sort by last close to SMA distance", 
+    parser.add_argument("-smd", "--sort_ema_distance",    help=": sort by last close to SMA distance",
                         type=int, default=0)
     parser.add_argument("-sbd", "--sort_bbdistance",
                         type=str, default="",

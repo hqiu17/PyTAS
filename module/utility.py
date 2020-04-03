@@ -153,8 +153,8 @@ def get_output_filename(infile, **kwargs):
         file_name = file_name + ".szk" + kwargs["sort_zacks"].replace(',', '')
     elif kwargs["sort_trange"]:
         file_name = file_name + ".str" + kwargs["sort_trange"].replace(',', '_')
-    if kwargs["sort_madistance"] > 0:
-        file_name = file_name + ".sma" + str(kwargs["sort_madistance"])
+    if kwargs["sort_ema_distance"] > 0:
+        file_name = file_name + ".sEmaDist" + str(kwargs["sort_ema_distance"])
     if kwargs["sort_bbdistance"]:
         file_name = file_name + ".sbd" + kwargs["sort_bbdistance"].replace(',', '_')
     if kwargs["sort_brokerrecomm"]:
