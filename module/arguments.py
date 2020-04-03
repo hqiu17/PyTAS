@@ -55,7 +55,6 @@ def get_parsed(args):
     parser.add_argument("-stks", "--filter_stochastic_sig",
                         type=str, default="",
                         help=": filter for stochastic K>D signal. example 14,3,20,all or 14,3,20,crs")
-                        
     parser.add_argument("-mslc", "--filter_ema_slice",
                         type=str, default="",
                         help=": filter for price range contain MA or last close sandwiched between 2 MAs. example 20 or 20,50")

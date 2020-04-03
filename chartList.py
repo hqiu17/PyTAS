@@ -1,61 +1,45 @@
-#!/usr/local/bin/python
+#!/usr/bin/env python3
+"""
 
+"""
 
 import os
 import re
 import sys
-import copy
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.font_manager import FontProperties
-
-import module.candlestick as cdstk
 import module.utility as utility
-import module.argumentParser as argumentParser
-
-from module.candlestick import Security
-from module.stimeseries import stimeseries
-from module.candlestick import date_to_index
-from module.descriptions import descriptions
+import module.arguments as arguments
+import module.candlestick as candlestick
+from module.time_series_plus import TimeSeriesPlus
+from module.attribute_table import AttributeTable
 
 
-def make_imgfile(file_name, securities, count, panel_row, panel_col, to_be_recycled,
-         dayspan=200, gradient=9, fig_wid=40, fig_dep=24,
-         dualscale=False, drawbyrow=False):
+def make_image_file(file_name, securities, count, panel_row, panel_col,
+                    to_be_recycled, dayspan=200, gradient=9, fig_wid=40,
+                    fig_dep=24, dualscale=False, drawbyrow=False):
+    # create an image file containing plots for all input securities
 
-    # remove path from file name
-    if '/' in file_name:
-        mymatch = re.match("^.+\/([^\/]+)$", file_name)
-        if mymatch:
-            file_name = mymatch.group(1)
-        else:
-            print (f"#  cannot parse \'\/\' in infile name: {file_name}")
-            sys.exit(1)
-    # define output figure
-    output = "zxplot."+ file_name +f".{dayspan}d."+ str(count) +".pdf"
-
-    # chart in the output figure
-    recycle = cdstk.draw_many_candlesticks(securities, output,
-                                       panel_row, panel_col,
-                                       fig_wid, fig_dep,
-                                       dayspan, gradient,
-                                       drawbyrow
-                                       )
+    file_name = os.path.basename(file_name)
+    output = "chart." + file_name + f".{dayspan}d." + str(count) + ".pdf"
+    recycle = candlestick.draw_many_candlesticks(securities, output,
+                                                 panel_row, panel_col,
+                                                 fig_wid, fig_dep,
+                                                 dayspan, gradient,
+                                                 drawbyrow)
     securities.clear()
     to_be_recycled.extend(recycle)
 
 
 def chart_securities(file, **kwargs):
-    """
-    Chart a list of securities included in the input file
-
-    Argument:
-        file (str): location of text input file with each row
-            representing a security and each column representing
-            for an attribute of securities
-        kwargs : a list of user input key word arguments
-    """
+    #
+    # Chart a list of securities included in the input file
+    #
+    # Argument:
+    #     file (str): location of text input file with each row
+    #         representing a security and each column representing
+    #         for an attribute of securities
+    #     kwargs : a list of user input key word arguments
 
     fig_wid = 42
     fig_dep = 24
@@ -78,37 +62,35 @@ def chart_securities(file, **kwargs):
     # set the number of rows and columns within each output chart based on
     # the total number of input securities and charting related argument (-p)
     default_row_num = 6 if "," in dayspan else 7
-    panel_row = cdstk.set_row_num(num_stickers)
+    panel_row = candlestick.set_row_num(num_stickers)
     panel_row = default_row_num if panel_row > default_row_num else panel_row
     panel_col=panel_row
     if ',' in dayspan: panel_col = int((panel_col+1)/2)
     num_pic_per_file = panel_col * panel_row
 
-    if default_row_num==1:
-        fig_wid=10
-        fig_dep=6
+    if default_row_num == 1:
+        fig_wid = 10
+        fig_dep = 6
 
     # securities to be charted in different scale
     # (not implemented yet)
     to_be_recycled = []
 
     # filter and sort securities
-    tickers = descriptions(df, dir, kwargs)
+    tickers = AttributeTable(df, directory, kwargs)
     tickers.work()
-    df = tickers.get_new_descriptions()
+    df = tickers.get_attribute_table()
 
     # check for SPY data and add it to dataframe as background
-    spy =  dir+"/"+"SPY"+".txt"
+    spy = directory+"/"+"SPY"+".txt"
     ref = get_benchmark(spy, LAST_REMOVED_ROWS)
 
     # loop through filtered symbol table and collect securities
-    securities={}
-    count=1000
+    securities = {}
+    count = 1000
     #securities_filtered = pd.DataFrame()
 
     for sticker, row in df.iterrows():
-        #print (sticker)
-        row_copy = row.copy(deep=True)
         count+=1
         note = row['header']
         antt = row['annotation']
@@ -128,13 +110,13 @@ def chart_securities(file, **kwargs):
             rsi = str( sts.get_rsi())[0:4]
 
             if kwargs["weekly"] or kwargs["weeklyChart"]:
-                daily_price = stimeseries(daily_price).get_weekly()
+                daily_price = TimeSeriesPlus(daily_price).get_weekly()
             else:
-                if len(ref)>30:
+                if len(ref) > 30:
                     daily_price = daily_price.join(ref)
             daily_price=daily_price.tail(500)
 
-            mysecurity = Security(daily_price)
+            mysecurity = candlestick.Security(daily_price)
 
             if antt:
                 mysecurity.set_annotation(antt)
@@ -166,19 +148,18 @@ def chart_securities(file, **kwargs):
             c = 1000
             for key, security in securities.items():
                 c += 1
-                security_batch[key]=security
-                if len(security_batch)%num_pic_per_file ==0:
+                security_batch[key] = security
+                if len(security_batch) % num_pic_per_file == 0:
                     # create one output file for every 'num_to_plot' securities
-                    make_imgfile(file_name, security_batch, c,
+                    make_image_file(file_name, security_batch, c,
                                  panel_row, panel_col, to_be_recycled,
                                  dayspan, gradient, fig_wid, fig_dep)
                     security_batch = {}
             if len(security_batch) > 0:
                 # create one output file for remaining securities
-                make_imgfile(file_name, security_batch, c,
+                make_image_file(file_name, security_batch, c,
                              panel_row, panel_col, to_be_recycled,
                              dayspan, gradient, fig_wid, fig_dep)
-                security_batch = {}
 
 
 def get_benchmark(file, remove_recent=0):
@@ -191,7 +172,7 @@ def get_benchmark(file, remove_recent=0):
     Returns:
         dataframe: dataframe contains 2 columns: 1) 'weather', daily
             change (relative to prior day's closing); 2) 'long', if
-            closing is greater than 20MA.
+            closing is greater than 20MA or not.
     """
     ref = pd.DataFrame()
     if os.path.exists(file):
@@ -199,7 +180,7 @@ def get_benchmark(file, remove_recent=0):
                          index_col=['date'])
 
         # find go-long period
-        mydf=cdstk.cstick_sma(mydf)
+        mydf = candlestick.add_moving_averages(mydf)
         mydf['last-20MA'] = mydf['4. close'] - mydf['20MA']
         mydf['long'] = np.where(mydf['last-20MA']>0, 1, 0)
         # print (mydf.head(25))
@@ -226,13 +207,11 @@ if __name__ == "__main__":
     FIGWIDTH = 42
     FIGDEPTH = 24
 
-    #--->
-    #    argument parser
-    #<---
+    # argument parser #
 
-    args = argumentParser.get_parsed(sys.argv[1:])
+    args = arguments.get_parsed(sys.argv[1:])
 
     # main code
-    dir = args.dir
+    directory = args.dir
     for file in args.list:
         chart_securities(file, **vars(args))

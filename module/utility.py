@@ -1,4 +1,6 @@
-#!/Users/air1/anaconda3/bin/python
+"""
+Miscellaneous functions
+"""
 
 import os
 import sys
@@ -29,7 +31,7 @@ def get_timeseries(key):
 
     Args:
         key (str): alpha vantage API key
-                   (https://www.alphavantage.co/support/#api-key)
+            (https://www.alphavantage.co/support/#api-key)
     Returns:
         ts (timeseries object): a timeseries object
     """
@@ -84,9 +86,9 @@ def make_dir(directory):
                   f"", sys.exc_info()[0])
             raise
         else:
-            print("directory ", dir, " is created")
+            print("directory ", directory, " is created")
     else:
-        print("directory ", dir, " already exists")
+        print("directory ", directory, " already exists")
 
 
 # def file_strip_txt(file):
@@ -158,7 +160,7 @@ def get_output_filename(infile, **kwargs):
     if kwargs["sort_brokerrecomm"]:
         file_name = file_name + ".sbr"
     if kwargs["sort_performance"] > 0:
-        file_name = file_name + ".spfmc" + str(int(kwargs["sort_performance"]))
+        file_name = file_name + ".spm" + str(int(kwargs["sort_performance"]))
     if kwargs["sort_industry"]:
         file_name = file_name + ".sid"
     if ',' in kwargs["sort_sink"]:
@@ -175,7 +177,6 @@ def get_output_filename(infile, **kwargs):
         file_name = file_name + ".mslc" + kwargs["filter_ema_slice"].replace(',', '-')
     if kwargs["two_dragon"]:
         file_name = file_name + ".2drgn" + kwargs["two_dragon"].replace(',', '-')
-
     if kwargs["weekly"]:
         file_name = file_name + ".wkly"
     if kwargs["weeklyChart"]:

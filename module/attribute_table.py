@@ -1,23 +1,24 @@
+"""
+AttributeTable class and methods
+"""
+
 import os
-import re
 import sys
-import numpy as np
 import pandas as pd
-import module.candlestick as cdstk
 import module.utility as utility
-from module.stimeseries import stimeseries
+from module.time_series_plus import TimeSeriesPlus
 
 
-class descriptions:
-    """Class representing a list of securities and their attributes
+class AttributeTable:
+    """A class representing a list of securities and their attributes
     
     Attributes:
-        descriptions (dataframe): with symbol column as index
+        attribute_table (dataframe): with symbol column as index
         data_dir (str): location of directory containing price data
         sts_daily (dict): dictionary holding timeseries data for each security
         kwargs (dict): dictionary holding pairs of arguments and values
     Methods:
-        get_new_descriptions():
+        get_new_attribute_table():
             return securities attribute table
         basic_processing():
             default data cleaning and sorting
@@ -29,8 +30,8 @@ class descriptions:
             keyword argument-based filtering and sorting
     """
 
-    def __init__(self, descriptions, data_dir, kwargs):
-        self.descriptions = descriptions.copy(deep=True)
+    def __init__(self, attribute_table, data_dir, kwargs):
+        self._attribute_table = attribute_table.copy(deep=True)
         self.data_dir = data_dir
         # self.file_name = file_name
         # self.kwargs_backup = kwargs
@@ -41,8 +42,8 @@ class descriptions:
         self.make_header()
         self.sts_daily = self.read_timeseries()
 
-    def get_new_descriptions(self):
-        return self.descriptions
+    def get_attribute_table(self):
+        return self._attribute_table
 
     def basic_processing(self):
         """Basic data processing (update self.description)
@@ -51,7 +52,7 @@ class descriptions:
             Add buy- and sold-dates;
             Sort securities by purchase date followed by security name;
         """
-        df = self.descriptions
+        df = self._attribute_table
         if "Industry" in df:
             df = df[~df["Industry"].str.contains("Oil and Gas")]
 
@@ -76,7 +77,7 @@ class descriptions:
             print("#-x No 'Symbol' column in the input security data sheet")
             exit(1)
 
-        self.descriptions = df
+        self._attribute_table = df
 
     def make_header(self):
         """Create header and annotation for each security
@@ -85,7 +86,7 @@ class descriptions:
            recommendation, long-term growth, etc. Annotation summarize
            PE, PEG and next earning report date. 
         """
-        df = self.descriptions
+        df = self._attribute_table
         df["header"] = ""
         df["annotation"] = ""
         for sticker, row in df.iterrows():
@@ -113,46 +114,46 @@ class descriptions:
                 annot = annot + "eday" + str(row["Next EPS Report Date "])
             df.loc[sticker, "annotation"] = annot
 
-        self.descriptions = df
+        self._attribute_table = df
 
     def read_timeseries(self):
         """Read price data for each security and load into memory
            Securities without price data are dropped.
         """
         dict_sts = {}
-        for symbol, row in self.descriptions.iterrows():
+        for symbol, row in self._attribute_table.iterrows():
             file = self.data_dir + "/" + symbol + ".txt"
             if os.path.exists(file):
                 price = pd.read_csv(file, sep="\t", index_col=0)
-                sts = stimeseries(price)
+                sts = TimeSeriesPlus(price)
                 sts.sma_multiple()
                 dict_sts[symbol] = sts
             else:
-                self.descriptions = self.descriptions.drop(symbol)
+                self._attribute_table = self._attribute_table.drop(symbol)
         return dict_sts
 
     def work(self):
         """Filter and sort securities based on keyword arguments
         """
 
-        if self.kwargs["sort_brokerrecomm"] and "# Rating Strong Buy or Buy" in self.descriptions:
-            self.descriptions = self.descriptions.sort_values(["# Rating Strong Buy or Buy"],
+        if self.kwargs["sort_brokerrecomm"] and "# Rating Strong Buy or Buy" in self._attribute_table:
+            self._attribute_table = self._attribute_table.sort_values(["# Rating Strong Buy or Buy"],
                                                               ascending=False)
             del self.kwargs['sort_brokerrecomm']
 
-        if self.kwargs["sort_industry"] and "Industry" in self.descriptions:
-            self.descriptions = self.descriptions.sort_values(["Industry"])
+        if self.kwargs["sort_industry"] and "Industry" in self._attribute_table:
+            self._attribute_table = self._attribute_table.sort_values(["Industry"])
             del self.kwargs["sort_industry"]
 
         if self.kwargs["sort_earningDate"]:
-            if "Next EPS Report Date  (yyyymmdd)" in self.descriptions:
-                self.descriptions["Next EPS Report Date "] = self.descriptions["Next EPS Report Date  (yyyymmdd)"]
-                self.descriptions = self.descriptions.drop("Next EPS Report Date  (yyyymmdd)", axis=1)
+            if "Next EPS Report Date  (yyyymmdd)" in self._attribute_table:
+                self._attribute_table["Next EPS Report Date "] = self._attribute_table["Next EPS Report Date  (yyyymmdd)"]
+                self._attribute_table = self._attribute_table.drop("Next EPS Report Date  (yyyymmdd)", axis=1)
 
-            if "Next EPS Report Date " in self.descriptions:
+            if "Next EPS Report Date " in self._attribute_table:
                 # sort symbols by last earning date
-                self.descriptions["Next EPS Report Date "] = self.descriptions.to_numeric(df["Next EPS Report Date "])
-                self.descriptions = self.descriptions.sort_values(["Next EPS Report Date "], ascending=True)
+                self._attribute_table["Next EPS Report Date "] = self._attribute_table.to_numeric(df["Next EPS Report Date "])
+                self._attribute_table = self._attribute_table.sort_values(["Next EPS Report Date "], ascending=True)
 
         if self.kwargs["sort_zacks"]:
             sort_zacks = self.kwargs["sort_zacks"]
@@ -164,16 +165,16 @@ class descriptions:
             else:
                 type = sort_zacks
 
-            if type == 'V' and "Value Score" in self.descriptions:
+            if type == 'V' and "Value Score" in self._attribute_table:
                 if cut:
-                    self.descriptions = self.descriptions[self.descriptions["Value Score"] <= cut]
-                    print(f"# {self.descriptions.shape[0]:>5} symbols meeting Value cutoff {cut}")
-                self.descriptions = self.descriptions.sort_values(["Value Score"])
-            elif type == 'G' and "Growth Score" in self.descriptions:
+                    self._attribute_table = self._attribute_table[self._attribute_table["Value Score"] <= cut]
+                    print(f"# {self._attribute_table.shape[0]:>5} symbols meeting Value cutoff {cut}")
+                self._attribute_table = self._attribute_table.sort_values(["Value Score"])
+            elif type == 'G' and "Growth Score" in self._attribute_table:
                 if cut:
-                    self.descriptions = self.descriptions[self.descriptions["Growth Score"] <= cut]
-                    print(f"# {self.descriptions.shape[0]:>5} symbols meeting Growth cutoff {cut}")
-                self.descriptions = self.descriptions.sort_values(["Growth Score"])
+                    self._attribute_table = self._attribute_table[self._attribute_table["Growth Score"] <= cut]
+                    print(f"# {self._attribute_table.shape[0]:>5} symbols meeting Growth cutoff {cut}")
+                self._attribute_table = self._attribute_table.sort_values(["Growth Score"])
             else:
                 print(f"invalide input for -szk: {sort_zacks}")
                 exit(1)
@@ -193,14 +194,14 @@ class descriptions:
                 days, cutoff = argument.split(',')
                 trange_days = int(days)
                 trange_cutoff = float(cutoff)
-                self.descriptions["Sort"] = 0
+                self._attribute_table["Sort"] = 0
                 if trange_days > 0:
-                    for symbol, row in self.descriptions.iterrows():
-                        self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].get_trading_uprange(trange_days)
+                    for symbol, row in self._attribute_table.iterrows():
+                        self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_trading_uprange(trange_days)
                 if trange_cutoff >= 0:
-                    self.descriptions = self.descriptions.loc[self.descriptions["Sort"] >= trange_cutoff]
-                self.descriptions = self.descriptions.sort_values(["Sort"], ascending=False)
-                print(len(self.descriptions), " symbols meet user criterion")
+                    self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] >= trange_cutoff]
+                self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
+                print(len(self._attribute_table), " symbols meet user criterion")
 
             # method filter_macd_sig
             if self.kwargs["filter_macd_sig"]:
@@ -216,21 +217,21 @@ class descriptions:
                     print("macd argument cannot be recognized")
                     exit(1)
 
-                self.descriptions["Sort"] = 0
-                for symbol in self.descriptions.index:
-                    self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].macd_cross_up(sspan, lspan, 3)
-                self.descriptions = self.descriptions.loc[self.descriptions["Sort"] > 0]
-                print(len(self.descriptions), " symbols meet user criterion")
+                self._attribute_table["Sort"] = 0
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].macd_cross_up(sspan, lspan, 3)
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
+                print(len(self._attribute_table), " symbols meet user criterion")
 
             if self.kwargs["sort_madistance"] > 0:
                 # sort symbols by last close-to-SMA distance
 
                 sort_madistance = self.kwargs["sort_madistance"]
 
-                self.descriptions["Sort"] = 0
-                for symbol in self.descriptions.index:
-                    self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].get_SMAdistance(sort_madistance)
-                self.descriptions = self.descriptions.sort_values(["Sort"], ascending=True)
+                self._attribute_table["Sort"] = 0
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_SMAdistance(sort_madistance)
+                self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
 
             # method filter based on stochastic signal
             if self.kwargs["filter_stochastic_sig"]:
@@ -252,7 +253,7 @@ class descriptions:
                     print("x-> stochastic input is invalide ", e)
                     sys.exit(1)
 
-                for symbol in self.descriptions.index:
+                for symbol in self._attribute_table.index:
                     (k, d, cross, bullish) = self.sts_daily[symbol].stochastic_cross(n, m)
                     status = True
                     if k > cutoff + 15 or d > cutoff:
@@ -262,8 +263,8 @@ class descriptions:
                     elif cross <= 0:
                         status = False
                     if not status:
-                        self.descriptions.drop(symbol, inplace=True)
-                print("# {:>5} symbols meet stochastic criteria".format(len(self.descriptions)))
+                        self._attribute_table.drop(symbol, inplace=True)
+                print("# {:>5} symbols meet stochastic criteria".format(len(self._attribute_table)))
 
             if self.kwargs["two_dragon"]:
                 two_dragon = self.kwargs["two_dragon"]
@@ -277,12 +278,12 @@ class descriptions:
                 if len(array) == 4:
                     array2.append(float(array[3]))
 
-                self.descriptions["Sort"] = 0
-                for symbol in self.descriptions.index:
-                    self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].two_dragon(*array2)
-                self.descriptions = self.descriptions.loc[self.descriptions["Sort"] > 0]
+                self._attribute_table["Sort"] = 0
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].two_dragon(*array2)
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
 
-                print("# {:>5} symbols meet 2dragon criteria {}".format(len(self.descriptions), two_dragon))
+                print("# {:>5} symbols meet 2dragon criteria {}".format(len(self._attribute_table), two_dragon))
 
             if self.kwargs["sort_sink"]:
                 # Sort securities by price change in a defined date or 
@@ -300,13 +301,13 @@ class descriptions:
                 reference_date = aa[0]
                 days = aa[1]
 
-                self.descriptions["Sort"] = 0
-                for symbol, row in self.descriptions.iterrows():
-                    self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].get_referenced_change(reference_date,
+                self._attribute_table["Sort"] = 0
+                for symbol, row in self._attribute_table.iterrows():
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_referenced_change(reference_date,
                                                                                                          days)
 
-                self.descriptions = self.descriptions.sort_values(["Sort"], ascending=True)
-                self.descriptions["Date Added"] = reference_date
+                self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
+                self._attribute_table["Date Added"] = reference_date
 
             # method filter and sort by last close to bollinger band bottom border distance
             if self.kwargs["sort_bbdistance"]:
@@ -317,40 +318,40 @@ class descriptions:
                 if len(list_arg) == 2:
                     days = int(list_arg[1])
 
-                self.descriptions["Sort"] = 0
-                for symbol, row in self.descriptions.iterrows():
-                    self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].get_BBdistance(days)
+                self._attribute_table["Sort"] = 0
+                for symbol, row in self._attribute_table.iterrows():
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_BBdistance(days)
 
-                self.descriptions = self.descriptions.loc[self.descriptions["Sort"] <= cutoff]
-                self.descriptions = self.descriptions.sort_values(["Sort"], ascending=True)
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] <= cutoff]
+                self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
 
             if self.kwargs["sort_performance"]:
                 sort_performance = self.kwargs["sort_performance"]
 
-                self.descriptions["Sort"] = 0
-                for symbol in self.descriptions.index:
-                    self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].get_latest_performance(
+                self._attribute_table["Sort"] = 0
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_latest_performance(
                         sort_performance)
 
-                self.descriptions = self.descriptions.sort_values(["Sort"], ascending=False)
+                self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
 
             if self.kwargs["uptrend"]:
                 uptrend = self.kwargs["uptrend"]
                 args = uptrend.split(',')
 
-                self.descriptions["Sort"] = 0
-                for symbol in self.descriptions.index:
-                    self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].in_uptrendx(*args)
+                self._attribute_table["Sort"] = 0
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].in_uptrendx(*args)
 
-                self.descriptions = self.descriptions.loc[self.descriptions["Sort"] > 0]
-                print("# {:>5} symbols meet uptrend criteria {}".format(len(self.descriptions), uptrend))
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
+                print("# {:>5} symbols meet uptrend criteria {}".format(len(self._attribute_table), uptrend))
 
             if self.kwargs["filter_ema_slice"]:
                 filter_ema_slice = int(self.kwargs["filter_ema_slice"])
 
-                self.descriptions["Sort"] = False
-                for symbol in self.descriptions.index:
-                    self.descriptions.loc[symbol, "Sort"] = self.sts_daily[symbol].touch_down(filter_ema_slice)
+                self._attribute_table["Sort"] = False
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].touch_down(filter_ema_slice)
 
-                self.descriptions = self.descriptions.loc[self.descriptions["Sort"]]
-                print("# {:>5} symbols meet EMA slice criteria {}".format(len(self.descriptions), filter_ema_slice))
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
+                print("# {:>5} symbols meet EMA slice criteria {}".format(len(self._attribute_table), filter_ema_slice))
