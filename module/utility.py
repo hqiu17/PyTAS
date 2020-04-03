@@ -167,8 +167,6 @@ def get_output_filename(infile, **kwargs):
         file_name = file_name + ".ssk" + kwargs["sort_sink"].replace(',', '_')
     if kwargs["sort_earningDate"]:
         file_name = file_name + ".sed"
-    if kwargs["filter_madistance"] > 0:
-        file_name = file_name + ".fma" + str(kwargs["filter_madistance"])
     if kwargs["filter_macd_sig"]:
         file_name = file_name + ".macd" + kwargs["filter_macd_sig"].replace(',', '-')
     if kwargs["filter_stochastic_sig"]:

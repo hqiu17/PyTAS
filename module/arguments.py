@@ -46,9 +46,6 @@ def get_parsed(args):
     parser.add_argument("-str", "--sort_trange",
                         type=str, default="",
                         help=": sort names by trading range and filter data with this value >0 (e.g., -str 20,0.05: 20-day trading range with 5% cutoff)")
-    parser.add_argument("-fmd", "--filter_madistance",
-                        type=int, default=0,
-                        help=": filter for price dipping to moving average")
     parser.add_argument("-macd", "--filter_macd_sig",
                         type=str, default="",
                         help=": filter for macd signal crossing upward")                 
