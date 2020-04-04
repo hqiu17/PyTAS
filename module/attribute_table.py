@@ -120,13 +120,13 @@ class AttributeTable:
         """Read price data for each security and load into memory
            Securities without price data are dropped.
         """
+
         dict_sts = {}
         for symbol, row in self._attribute_table.iterrows():
             file = self.data_dir + "/" + symbol + ".txt"
             if os.path.exists(file):
-                price = pd.read_csv(file, sep="\t", index_col=0)
-                sts = TimeSeriesPlus(price)
-                sts.sma_multiple()
+                price = pd.read_csv(file, sep="\t", parse_dates=['date'], index_col=['date'])
+                sts = TimeSeriesPlus(price).sma_multiple()
                 dict_sts[symbol] = sts
             else:
                 self._attribute_table = self._attribute_table.drop(symbol)
@@ -326,12 +326,12 @@ class AttributeTable:
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
 
             if self.kwargs["sort_performance"]:
-                sort_performance = self.kwargs["sort_performance"]
+                arg = self.kwargs["sort_performance"]
 
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
                     self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_latest_performance(
-                        sort_performance)
+                        arg)
 
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
 
