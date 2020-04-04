@@ -3,3 +3,4 @@
 __pycache__/
 module/__pycache__/
 module/.DS_Store
+.idea/
