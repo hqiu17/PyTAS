@@ -25,7 +25,7 @@ def get_parsed(args):
                         default=False,
                         help=": analyze and chart data in weekly timeframe",
                         action='store_true')
-    parser.add_argument("-wc", "--weeklyChart",
+    parser.add_argument("-wc", "--weekly_chart",
                         default=False,
                         help=": only chart data in weekly timeframe",
                         action='store_true')   

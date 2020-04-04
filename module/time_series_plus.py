@@ -61,7 +61,6 @@ class TimeSeriesPlus:
         prices = df["4. close"].tail(day)
         return (prices.max() - prices[-1]) / prices.max()
 
-
     # def in_uptrend(self, days, interval=3, cutoff=0.75, blind=0):
     #     status=False
     #     df = self.df
@@ -101,7 +100,6 @@ class TimeSeriesPlus:
     #     if (count_pass/count_all) > cutoff:
     #         status=True
     #     return status
-
 
     def macd_cross_up(self, sspan=12, lspan=26, persist=1):
         """
@@ -249,14 +247,16 @@ class TimeSeriesPlus:
 
     def sma_multiple(self):
         ma_days = [3, 20, 50, 100, 150, 200]
+        df = self.df
         for days in ma_days:
             # df[str(days)+'MA'] = df["4. close"].rolling(days).mean()
-            self.df[str(days) + 'MA'] = self.df["4. close"].ewm(span=days, adjust=False).mean()
-        # simple moving average for bollinger band       
-        self.df["20SMA"] = self.df["4. close"].rolling(20).mean()
-        self.df['STD20'] = self.df["4. close"].rolling(20).std()
-        self.df['BB20u'] = self.df['20SMA'] + self.df['STD20'] * 2
-        self.df['BB20d'] = self.df['20SMA'] - self.df['STD20'] * 2
+            df[str(days) + 'MA'] = df["4. close"].ewm(span=days, adjust=False).mean()
+        # simple moving average for bollinger band
+        df["20SMA"] = df["4. close"].rolling(20).mean()
+        df['STD20'] = df["4. close"].rolling(20).std()
+        df['BB20u'] = df['20SMA'] + df['STD20'] * 2
+        df['BB20d'] = df['20SMA'] - df['STD20'] * 2
+        return self
 
     def to_weekly(self):
         logic = {'1. open': 'first',

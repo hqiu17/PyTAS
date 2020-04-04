@@ -277,15 +277,16 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
             if MA in df: df[MA].plot()
 
         if sample_size <= 120:
-            df['BB20u'].plot(color='#1f77b4')
-            df['BB20d'].plot(color='#1f77b4')
-            plt.fill_between(df.index, df['BB20u'], df['BB20d'], color='blue', alpha=0.05)
-            """ pandas plot's default color
-                >>> prop_cycle = plt.rcParams['axes.prop_cycle']
-                >>> prop_cycle.by_key()['color']
-                ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
-                 '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
-            """
+            if 'BB20u' in df and 'BB20d' in df:
+                df['BB20u'].plot(color='#1f77b4')
+                df['BB20d'].plot(color='#1f77b4')
+                plt.fill_between(df.index, df['BB20u'], df['BB20d'], color='blue', alpha=0.05)
+             # pandas plot's default color
+             #    >>> prop_cycle = plt.rcParams['axes.prop_cycle']
+             #    >>> prop_cycle.by_key()['color']
+             #    ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+             #     '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+
 
     # plot candlesticks (core data)
     if df.shape[0] > 15 and df.shape[0] <= 120:

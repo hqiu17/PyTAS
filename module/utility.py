@@ -177,9 +177,9 @@ def get_output_filename(infile, **kwargs):
     if kwargs["two_dragon"]:
         file_name = file_name + ".2drgn" + kwargs["two_dragon"].replace(',', '-')
     if kwargs["weekly"]:
-        file_name = file_name + ".wkly"
-    if kwargs["weeklyChart"]:
-        file_name = file_name + ".wklyc"
+        file_name = file_name + ".week"
+    if kwargs["weekly_chart"]:
+        file_name = file_name + ".wkch"
 
     return file_name
 

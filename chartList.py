@@ -113,8 +113,9 @@ def chart_securities(file, **kwargs):
 
             rsi = str( sts.get_rsi())[0:4]
 
-            if kwargs["weekly"] or kwargs["weeklyChart"]:
+            if kwargs["weekly_chart"]:
                 daily_price = TimeSeriesPlus(daily_price).get_weekly()
+                daily_price = TimeSeriesPlus(daily_price).sma_multiple().df
             else:
                 if len(ref) > 30:
                     daily_price = daily_price.join(ref)
