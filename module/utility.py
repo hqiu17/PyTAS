@@ -91,12 +91,13 @@ def make_dir(directory):
         print("directory ", directory, " already exists")
 
 
-# def file_strip_txt(file):
-#     name=file
-#     mymatch = re.match(r'^(\S+)(?:.txt)+', file)
-#     if mymatch:
-#         name = mymatch.group(1)
-#     return name
+def file_name_rstrip(file_name):
+    """Trim file suffix"""
+    patterns = ['.txt','.tsv','.TSV','.csv','.CSV']
+    for p in patterns:
+        file_name = file_name.rstrip(p)
+    return file_name
+
 
 
 def fix_date_added(day):
@@ -143,8 +144,8 @@ def get_output_filename(infile, **kwargs):
         file_name = file_name + ".cvg"
     if kwargs["blind"] > 0:
         file_name = file_name + ".bld" + str(kwargs["blind"])
-    if kwargs["uptrend"]:
-        file_name = file_name + ".cup" + kwargs["uptrend"].replace(',', '-')
+    if kwargs["filter_upward"]:
+        file_name = file_name + ".fUpw" + kwargs["filter_upward"].replace(',', '-')
     if kwargs["cutBrokerbyRatio"] > 0:
         file_name = file_name + ".cbr" + str(int(kwargs["cutBrokerbyRatio"] * 100))
     if kwargs["cutBrokerbyCount"] > 0:
@@ -160,19 +161,19 @@ def get_output_filename(infile, **kwargs):
     if kwargs["sort_brokerrecomm"]:
         file_name = file_name + ".sbr"
     if kwargs["sort_performance"] > 0:
-        file_name = file_name + ".spm" + str(int(kwargs["sort_performance"]))
+        file_name = file_name + ".sPfm" + str(int(kwargs["sort_performance"]))
     if kwargs["sort_industry"]:
-        file_name = file_name + ".sid"
+        file_name = file_name + ".sInd"
     if ',' in kwargs["sort_sink"]:
         file_name = file_name + ".ssk" + kwargs["sort_sink"].replace(',', '_')
     if kwargs["sort_earningDate"]:
         file_name = file_name + ".sed"
-    if kwargs["filter_macd_sig"]:
-        file_name = file_name + ".macd" + kwargs["filter_macd_sig"].replace(',', '-')
-    if kwargs["filter_stochastic_sig"]:
-        file_name = file_name + ".stks" + kwargs["filter_stochastic_sig"].replace(',', '-')
+    if kwargs["filter_macd_sgl"]:
+        file_name = file_name + ".fMacd" + kwargs["filter_macd_sgl"].replace(',', '-')
+    if kwargs["filter_stochastic_sgl"]:
+        file_name = file_name + ".fStcs" + kwargs["filter_stochastic_sgl"].replace(',', '-')
     if kwargs["filter_ema_slice"]:
-        file_name = file_name + ".mslc" + kwargs["filter_ema_slice"].replace(',', '-')
+        file_name = file_name + ".fEmaSli" + kwargs["filter_ema_slice"].replace(',', '-')
     if kwargs["two_dragon"]:
         file_name = file_name + ".2drgn" + kwargs["two_dragon"].replace(',', '-')
     if kwargs["weekly"]:

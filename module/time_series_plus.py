@@ -237,7 +237,7 @@ class TimeSeriesPlus:
         return status
 
     def in_uptrend(self, TRNDdays, cutoff=0.8, blind=0):
-        return self.in_uptrend_internal(self.df, TRNDdays, cutoff, blind)
+        return self.in_uptrend_internal(self.df, int(TRNDdays), float(cutoff), int(blind))
 
     def in_uptrendx(self, *args):
         TRNDdays = int(args[0])

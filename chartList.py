@@ -21,7 +21,8 @@ def make_image_file(file_name, securities, count, panel_row, panel_col,
     # create an image file containing plots for all input securities
 
     file_name = os.path.basename(file_name)
-    output = "chart." + file_name + f".{dayspan}d." + str(count) + ".pdf"
+    output = "chart." + file_name + f".{dayspan}d." \
+             + str(count)[1:] + "i" + ".pdf"
     recycle = candlestick.draw_many_candlesticks(securities, output,
                                                  panel_row, panel_col,
                                                  fig_wid, fig_dep,
@@ -43,7 +44,7 @@ def chart_securities(file, **kwargs):
 
     fig_wid = 42
     fig_dep = 24
-    dayspan = kwargs["period"]
+    dayspan = kwargs["days"]
     gradient = kwargs["gradient"]
     weekly = kwargs['weekly']
 
@@ -54,7 +55,8 @@ def chart_securities(file, **kwargs):
     num_stickers = df.shape[0]
     print (f"#->{num_stickers:>4} securities in ", end="")
 
-    file_name = file.rstrip('.txt')
+    file_name = os.path.basename(file)
+    file_name = utility.file_name_rstrip(file_name)
     if file_name:
         print(file_name)
         file_name = utility.get_output_filename(file_name, **kwargs)
@@ -90,6 +92,8 @@ def chart_securities(file, **kwargs):
     count = 1000
     #securities_filtered = pd.DataFrame()
 
+    # loop through security list, create Security instances
+    # and load into a dictionary
     for sticker, row in df.iterrows():
         count+=1
         note = row['header']
@@ -138,13 +142,14 @@ def chart_securities(file, **kwargs):
     # write processed dataframe to local file
     if kwargs["filterOnly"]:
         df.to_csv(file_name+".tsv", sep="\t")
-    # plot multi-panel figure while going through a list of securities
+    # plot multi-panel figure while going through a dictionary of
+    # Security instances
     else:
         print(f"# {len(securities):>5} data to plot")
         num_to_plot = len(securities) if len(securities) > 0 else 0
+
         if num_to_plot:
             security_batch = {}
-
             c = 1000
             for key, security in securities.items():
                 c += 1

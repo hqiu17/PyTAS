@@ -152,7 +152,7 @@ class AttributeTable:
 
             if "Next EPS Report Date " in self._attribute_table:
                 # sort symbols by last earning date
-                self._attribute_table["Next EPS Report Date "] = self._attribute_table.to_numeric(df["Next EPS Report Date "])
+                self._attribute_table["Next EPS Report Date "] = self._attribute_table.to_numeric(self.df["Next EPS Report Date "])
                 self._attribute_table = self._attribute_table.sort_values(["Next EPS Report Date "], ascending=True)
 
         if self.kwargs["sort_zacks"]:
@@ -185,7 +185,7 @@ class AttributeTable:
             # method sort_trange
             if self.kwargs["sort_trange"]:
                 """
-                Sort a list of securities based on their upward trading range for a defined recent 
+                Sort a list of securities based on their filter_upward trading range for a defined recent 
                 period
                 
                 Outcome: update instance variable 'description'
@@ -203,16 +203,16 @@ class AttributeTable:
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
                 print(len(self._attribute_table), " symbols meet user criterion")
 
-            # method filter_macd_sig
-            if self.kwargs["filter_macd_sig"]:
+            # method filter_macd_sgl
+            if self.kwargs["filter_macd_sgl"]:
                 # Filter securities based on MACD cross above signal line
                 # Outcome: shorten instance variable 'description'
                 # example: input variable "14,20"
                 #     K line with 14-day EMA and D line with 20-day EMA
 
-                filter_macd_sig = self.kwargs["filter_macd_sig"]
+                filter_macd_sgl = self.kwargs["filter_macd_sgl"]
                 try:
-                    (sspan, lspan) = list(map(int, filter_macd_sig.split(',')))
+                    (sspan, lspan) = list(map(int, filter_macd_sgl.split(',')))
                 except ValueError:
                     print("macd argument cannot be recognized")
                     exit(1)
@@ -234,7 +234,7 @@ class AttributeTable:
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
 
             # method filter based on stochastic signal
-            if self.kwargs["filter_stochastic_sig"]:
+            if self.kwargs["filter_stochastic_sgl"]:
                 # filter for oversold (d < cutoff) tickers with stochastic K > D and
                 # bullish price action (paction < cutoff)
                 # input string: stochastic long term,
@@ -242,9 +242,9 @@ class AttributeTable:
                 #               stochastic d cutoff,
                 #               k>d ('all') or k just cross d up ('crs' or any string)
 
-                filter_stochastic_sig = self.kwargs["filter_stochastic_sig"]
+                filter_stochastic_sgl = self.kwargs["filter_stochastic_sgl"]
                 try:
-                    (n, m, cutoff, mode) = filter_stochastic_sig.split(',')
+                    (n, m, cutoff, mode) = filter_stochastic_sgl.split(',')
                     n = int(n)
                     m = int(m)
                     cutoff = float(cutoff)
@@ -335,16 +335,16 @@ class AttributeTable:
 
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
 
-            if self.kwargs["uptrend"]:
-                uptrend = self.kwargs["uptrend"]
-                args = uptrend.split(',')
+            if self.kwargs["filter_upward"]:
+                filter_upward = self.kwargs["filter_upward"]
+                args = filter_upward.split(',')
 
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].in_uptrendx(*args)
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].in_uptrend(*args)
 
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
-                print("# {:>5} symbols meet uptrend criteria {}".format(len(self._attribute_table), uptrend))
+                print("# {:>5} symbols meet filter_upward criteria {}".format(len(self._attribute_table), filter_upward))
 
             if self.kwargs["filter_ema_slice"]:
                 filter_ema_slice = int(self.kwargs["filter_ema_slice"])

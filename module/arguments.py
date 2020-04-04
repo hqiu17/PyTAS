@@ -12,7 +12,7 @@ def get_parsed(args):
     parser.add_argument("-d", "--dir" , 
                         default="/Users/air/watchlist/daliyPrice",
                         help=": a direcotry holding price data for symbols")
-    parser.add_argument("-p","--period",
+    parser.add_argument("-day","--days",
                         type=str, default="200",
                         help=": length of period (days) to plot")
     parser.add_argument("-g","--gradient",
@@ -34,9 +34,9 @@ def get_parsed(args):
                         default=False,
                         help=": set filter on for VGM",
                         action='store_true')
-    parser.add_argument("-cup", "--uptrend" ,
+    parser.add_argument("-upw", "--filter_upward" ,
                         type=str, default="",
-                        help=": set window for uptrend definition. example: 60,0.8,30 (window,cutoff,blind)")
+                        help=": filter for uptrend. example: 60,0.8,30 (window length,cutoff,ignore recent)")
     parser.add_argument("-cbr", "--cutBrokerbyRatio",
                         type=float, default=0,
                         help=": set cut-off for broker buy recommendation ratio")
@@ -46,10 +46,10 @@ def get_parsed(args):
     parser.add_argument("-str", "--sort_trange",
                         type=str, default="",
                         help=": sort names by trading range and filter data with this value >0 (e.g., -str 20,0.05: 20-day trading range with 5% cutoff)")
-    parser.add_argument("-macd", "--filter_macd_sig",
+    parser.add_argument("-macd", "--filter_macd_sgl",
                         type=str, default="",
                         help=": filter for macd signal crossing upward")                 
-    parser.add_argument("-stks", "--filter_stochastic_sig",
+    parser.add_argument("-stcs", "--filter_stochastic_sgl",
                         type=str, default="",
                         help=": filter for stochastic K>D signal. example 14,3,20,all or 14,3,20,crs")
     parser.add_argument("-mslc", "--filter_ema_slice",
@@ -75,7 +75,7 @@ def get_parsed(args):
                         default=False, action='store_true')
     parser.add_argument("-ssk", "--sort_sink",     help=": sort by ratio of price down relative to reference date",
                         type=str, default="")
-    parser.add_argument("-spm", "--sort_performance",   help=": sort by ratio of price down relative to reference date",
+    parser.add_argument("-spfm", "--sort_performance",   help=": sort by ratio of price down relative to reference date",
                         type=int, default=0)
     parser.add_argument("-smd", "--sort_ema_distance",    help=": sort by last close to SMA distance",
                         type=int, default=0)
