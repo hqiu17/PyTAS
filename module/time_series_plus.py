@@ -256,6 +256,7 @@ class TimeSeriesPlus:
         df['STD20'] = df["4. close"].rolling(20).std()
         df['BB20u'] = df['20SMA'] + df['STD20'] * 2
         df['BB20d'] = df['20SMA'] - df['STD20'] * 2
+        #df['BB20d_SMA10'] = df['BB20d'].rolling(10).mean()
         return self
 
     def to_weekly(self):

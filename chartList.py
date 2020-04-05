@@ -13,7 +13,7 @@ import module.arguments as arguments
 import module.candlestick as candlestick
 from module.time_series_plus import TimeSeriesPlus
 from module.attribute_table import AttributeTable
-
+import argparse
 
 def make_image_file(file_name, securities, count, panel_row, panel_col,
                     to_be_recycled, dayspan=200, gradient=9, fig_wid=40,
@@ -213,9 +213,11 @@ if __name__ == "__main__":
     FIGWIDTH = 42
     FIGDEPTH = 24
 
-    # argument parser #
-
-    args = arguments.get_parsed(sys.argv[1:])
+    # argument parser
+    parser = arguments.get_parser()
+    if len(sys.argv)==1:
+        parser.print_help(sys.stderr); sys.exit(1)
+    args=parser.parse_args()
 
     # main code
     directory = args.dir

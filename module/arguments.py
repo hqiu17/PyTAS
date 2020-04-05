@@ -1,13 +1,14 @@
 import sys
 import argparse
 
-def get_parsed(args):
+def get_parser():
+    #print('get_parsed 1')
     # parser
     text= "Given a symbol list, draw candlesticks for each of item"
     parser = argparse.ArgumentParser(description = text)
     
     parser.add_argument("list", 
-                        nargs='*',
+                        nargs='+',
                         help=": a list of symbol in TSV")
     parser.add_argument("-d", "--dir" , 
                         default="/Users/air/watchlist/daliyPrice",
@@ -36,16 +37,18 @@ def get_parsed(args):
                         action='store_true')
     parser.add_argument("-upw", "--filter_upward" ,
                         type=str, default="",
-                        help=": filter for uptrend. example: 60,0.8,30 (window length,cutoff,ignore recent)")
+                        help=": going upward in defined recent period [eg, 60,0.8,30 (window length,cutoff,"
+                             "recent ignore]")
     parser.add_argument("-cbr", "--cutBrokerbyRatio",
-                        type=float, default=0,
+                        type=float, default="",
                         help=": set cut-off for broker buy recommendation ratio")
     parser.add_argument("-cbc", "--cutBrokerbyCount",
-                        type=float, default=0,
+                        type=float, default="",
                         help=": set cut-off for broker buy recommendation count")
     parser.add_argument("-str", "--sort_trange",
                         type=str, default="",
-                        help=": sort names by trading range and filter data with this value >0 (e.g., -str 20,0.05: 20-day trading range with 5% cutoff)")
+                        help=": sort names by trading range and filter data when this value is"
+                             " greater than zero (eg, -str 20,0.05 means 20-day trading range with 0.05 cutoff)")
     parser.add_argument("-macd", "--filter_macd_sgl",
                         type=str, default="",
                         help=": filter for macd signal crossing upward")                 
@@ -54,36 +57,33 @@ def get_parsed(args):
                         help=": filter for stochastic K>D signal. example 14,3,20,all or 14,3,20,crs")
     parser.add_argument("-mslc", "--filter_ema_slice",
                         type=str, default="",
-                        help=": filter for price range contain MA or last close sandwiched between 2 MAs. example 20 or 20,50")
+                        help=": last price range is sliced (or intersected) by key EMA (20, 50, 100, 200)")
     parser.add_argument("-2dgn", "--two_dragon",
                         type=str, default="",
                         help=": filter for uptrend defined by 2 moving average. example 20,50,60 or 20,50,60,0.8")
                         
     # SORT
-    parser.add_argument("-szk","--sort_zacks",
-                        type=str, default="",
-                        help='sort (and filter)symbols by zacks type value(V) or growth(G) rank. example -szk V,a')    
-    parser.add_argument("-sda","--sort_dateAdded",
-                        help=": sort by date added",
+    parser.add_argument("-szk","--sort_zacks", type=str, default="",
+                        help=': sort (and filter)symbols by zacks type value(V) or growth(G) rank. example -szk V,a')
+    parser.add_argument("-sda","--sort_dateAdded", help=": sort by date added",
                         action='store_true')
-    parser.add_argument("-sed","--sort_earningDate",
-                        help=": sort by next earning report date",
+    parser.add_argument("-sed","--sort_earningDate", help=": sort by next earning report date",
                         action='store_true')
-    parser.add_argument("-sbr", "--sort_brokerrecomm",  help=": sort by up trading range",
+    parser.add_argument("-sbr", "--sort_brokerrecomm", help=": sort by up trading range",
                         action='store_true')
     parser.add_argument("-sid", "--sort_industry", help=": sort by industry",
                         default=False, action='store_true')
-    parser.add_argument("-ssk", "--sort_sink",     help=": sort by ratio of price down relative to reference date",
+    parser.add_argument("-ssk", "--sort_sink", help=": sort by ratio of price down relative to reference date",
                         type=str, default="")
-    parser.add_argument("-spfm", "--sort_performance",   help=": sort by ratio of price down relative to reference date",
+    parser.add_argument("-spfm", "--sort_performance", help=": sort by ratio of price down relative to reference date",
                         type=int, default=0)
-    parser.add_argument("-smd", "--sort_ema_distance",    help=": sort by last close to SMA distance",
+    parser.add_argument("-smd", "--sort_ema_distance", help=": sort by last close to SMA distance",
                         type=int, default=0)
-    parser.add_argument("-sbd", "--sort_bbdistance",
-                        type=str, default="",
-                        help=": sort by bollinger band bottom border distance. Example -sbd 0.05,3 (minimal bd <0.05 in the last 3 days)")
-    parser.add_argument("-bld", "--blind",          help=": ignore the latest preriod (for hypothesis test)",
-                        type=int, default=0)
+    parser.add_argument("-sbd", "--sort_bbdistance", type=str, default="",
+                        help=": sort by distance to bollinger band bottom (eg, -sbd 0.05,3: distance <0.05 in any of "
+                             "the last 3 days)")
+    parser.add_argument("-bld", "--blind", help=": ignore recent period defined in days (for hypothesis test)",
+                         type=int, default=0)
 
     # SAMPLING                        
     parser.add_argument("-smpl", "--sample",
@@ -96,10 +96,5 @@ def get_parsed(args):
                         help=": filter names only",
                         action='store_true')
 
-    #parser.print_help(sys.stdout)
-    #if len(args)==0: parser.print_help(); sys.exit(1)                        
-    #if len(args)==0: parser.print_help(); sys.exit(1)                        
-    
-    args=parser.parse_args(args)
-    
-    return args
+    return parser
+
