@@ -183,6 +183,14 @@ def date_to_index(date, series):
     return date_close.index[index_zacks]
 
 
+def date_to_xy(date, df):
+    x = date_to_index(date, df['Date close'])
+    y = df.iloc[x]['4. close']
+    return x, y
+
+def date_to_crosshair(date):
+    pass
+
 def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
                        date_added="", date_sold="",
                        industry="",
@@ -236,38 +244,35 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
         plt.axvspan(df.index[-40],df.index[-20],color="grey", alpha=0.1)
     """
 
-    # plot 2018 dip / trade war
-    index1 = date_to_index(pd.to_datetime("2018-12-26 00:00:00"), df['Date close'])
-    index2 = date_to_index(pd.to_datetime("2018-10-4 00:00:00"), df['Date close'])
-    plt.axvspan(df.index[index1], df.index[index2], color="orange", alpha=0.1)
-
-    # plot 2019 May dip / trade war
-    index1 = date_to_index(pd.to_datetime("2019-5-1 00:00:00"), df['Date close'])
-    index2 = date_to_index(pd.to_datetime("2019-6-3 00:00:00"), df['Date close'])
-    plt.axvspan(df.index[index1], df.index[index2], color="orange", alpha=0.1)
-
-    # plot 2019 July dip / trade war
-    index1 = date_to_index(pd.to_datetime("2019-7-31 00:00:00"), df['Date close'])
-    index2 = date_to_index(pd.to_datetime("2019-8-27"), df['Date close'])
-    plt.axvspan(df.index[index1], df.index[index2], color="orange", alpha=0.1)
-    # plot 2019 July dip / trade war
-    index1 = date_to_index(pd.to_datetime("2019-9-20"), df['Date close'])
-    index2 = date_to_index(pd.to_datetime("2019-10-8"), df['Date close'])
-    plt.axvspan(df.index[index1], df.index[index2], color="orange", alpha=0.1)
+    # # plot 2018 dip / trade war
+    # index1 = date_to_index(pd.to_datetime("2018-12-26 00:00:00"), df['Date close'])
+    # index2 = date_to_index(pd.to_datetime("2018-10-4 00:00:00"), df['Date close'])
+    # plt.axvspan(df.index[index1], df.index[index2], color="orange", alpha=0.1)
+    #
+    # # plot 2019 May dip / trade war
+    # index1 = date_to_index(pd.to_datetime("2019-5-1 00:00:00"), df['Date close'])
+    # index2 = date_to_index(pd.to_datetime("2019-6-3 00:00:00"), df['Date close'])
+    # plt.axvspan(df.index[index1], df.index[index2], color="orange", alpha=0.1)
+    #
+    # # plot 2019 July dip / trade war
+    # index1 = date_to_index(pd.to_datetime("2019-7-31 00:00:00"), df['Date close'])
+    # index2 = date_to_index(pd.to_datetime("2019-8-27"), df['Date close'])
+    # plt.axvspan(df.index[index1], df.index[index2], color="orange", alpha=0.1)
+    # # plot 2019 July dip / trade war
+    # index1 = date_to_index(pd.to_datetime("2019-9-20"), df['Date close'])
+    # index2 = date_to_index(pd.to_datetime("2019-10-8"), df['Date close'])
+    # plt.axvspan(df.index[index1], df.index[index2], color="orange", alpha=0.1)
 
     # plot specified dates
     if date_added:
-        index = date_to_index(date_added, df['Date close'])
-        x_coordinate = df.index[index]
-        plt.axvline(x=x_coordinate, color="blue", linewidth=1)  # dashes=[5,10],
-        close_onbefore_zacks = df.iloc[index]['4. close']
-        plt.axhline(y=close_onbefore_zacks, color="blue", linewidth=1)  # dashes=[5,10],
+        x, y = date_to_xy(date_added, df)
+        plt.axvline(x=x, color="blue", dashes=[5, 10], linewidth=1)
+        plt.axhline(y=y, color="blue", dashes=[5, 10], linewidth=1)
+
     if date_sold:
-        index = date_to_index(date_sold, df['Date close'])
-        x_coordinate = df.index[index]
-        plt.axvline(x=x_coordinate, color="orange", dashes=[5, 10], linewidth=1)
-        # close_onbefore_zacks = df.iloc[index]['4. close']
-        # plt.axhline(y=close_onbefore_zacks,color="black",dashes=[5,10],linewidth=0.3)
+        x, y = date_to_xy(date_sold, df)
+        plt.axvline(x=x, color="orange", dashes=[5, 10], linewidth=1)
+        plt.axhline(y=y, color="orange", dashes=[5, 10], linewidth=1)
 
     # plot SMA
     df["4. close"].plot(color='black')
