@@ -189,8 +189,6 @@ def get_benchmark(file, remove_recent=0):
         mydf = candlestick.add_moving_averages(mydf)
         mydf['last-20MA'] = mydf['4. close'] - mydf['20MA']
         mydf['long'] = np.where(mydf['last-20MA']>0, 1, 0)
-        # print (mydf.head(25))
-        # calculate daily change
         mydf["close_shift1"] = mydf["4. close"].shift(periods=1)
         mydf["weather"] = (mydf["4. close"]-mydf["close_shift1"])/mydf["close_shift1"]
 

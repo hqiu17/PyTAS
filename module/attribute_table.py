@@ -138,7 +138,7 @@ class AttributeTable:
 
         if self.kwargs["sort_brokerrecomm"] and "# Rating Strong Buy or Buy" in self._attribute_table:
             self._attribute_table = self._attribute_table.sort_values(["# Rating Strong Buy or Buy"],
-                                                              ascending=False)
+                                                                      ascending=False)
             del self.kwargs['sort_brokerrecomm']
 
         if self.kwargs["sort_industry"] and "Industry" in self._attribute_table:
@@ -147,12 +147,14 @@ class AttributeTable:
 
         if self.kwargs["sort_earningDate"]:
             if "Next EPS Report Date  (yyyymmdd)" in self._attribute_table:
-                self._attribute_table["Next EPS Report Date "] = self._attribute_table["Next EPS Report Date  (yyyymmdd)"]
+                self._attribute_table["Next EPS Report Date "] = self._attribute_table[
+                    "Next EPS Report Date  (yyyymmdd)"]
                 self._attribute_table = self._attribute_table.drop("Next EPS Report Date  (yyyymmdd)", axis=1)
 
             if "Next EPS Report Date " in self._attribute_table:
                 # sort symbols by last earning date
-                self._attribute_table["Next EPS Report Date "] = self._attribute_table.to_numeric(self.df["Next EPS Report Date "])
+                self._attribute_table["Next EPS Report Date "] = self._attribute_table.to_numeric(
+                    self.df["Next EPS Report Date "])
                 self._attribute_table = self._attribute_table.sort_values(["Next EPS Report Date "], ascending=True)
 
         if self.kwargs["sort_zacks"]:
@@ -197,7 +199,8 @@ class AttributeTable:
                 self._attribute_table["Sort"] = 0
                 if trange_days > 0:
                     for symbol, row in self._attribute_table.iterrows():
-                        self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_trading_uprange(trange_days)
+                        self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_trading_uprange(
+                            trange_days)
                 if trange_cutoff >= 0:
                     self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] >= trange_cutoff]
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
@@ -230,7 +233,8 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_SMAdistance(sort_ema_distance)
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_SMAdistance(
+                        sort_ema_distance)
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
 
             # method filter based on stochastic signal
@@ -285,7 +289,7 @@ class AttributeTable:
 
                 print("# {:>5} symbols meet 2dragon criteria {}".format(len(self._attribute_table), two_dragon))
 
-            if self.kwargs["sort_sink"]:
+            if self.kwargs["sort_change_to_ref"]:
                 # Sort securities by price change in a defined date or 
                 #   period relative to a reference date
                 # 
@@ -296,18 +300,24 @@ class AttributeTable:
                 # 
                 # Outcome: update instance variable 'description'
 
-                sort_sink = self.kwargs["sort_sink"]
-                aa = sort_sink.split(',')
-                reference_date = aa[0]
-                days = aa[1]
+                arg = self.kwargs["sort_change_to_ref"]
+                aa = arg.split(',')
+                # reference_date = aa[0]
+                # days = aa[1]
+                if len(aa) != 2:
+                    raise ValueError("Argument \'{}\' does not contains exactly one comma".format(arg))
+                else:
+                    reference, subject = arg.split(',')
 
                 self._attribute_table["Sort"] = 0
                 for symbol, row in self._attribute_table.iterrows():
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_referenced_change(reference_date,
-                                                                                                         days)
+                    self._attribute_table.loc[symbol, "Sort"] = \
+                        self.sts_daily[symbol].get_referenced_change(reference, subject)
 
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
-                self._attribute_table["Date Added"] = reference_date
+                self._attribute_table["Date Added"] = reference
+                if subject.count('-') == 2:
+                    self._attribute_table["Date Sold"] = subject
 
             # method filter and sort by last close to bollinger band bottom border distance
             if self.kwargs["sort_bbdistance"]:
@@ -344,7 +354,8 @@ class AttributeTable:
                     self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].in_uptrend(*args)
 
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
-                print("# {:>5} symbols meet filter_upward criteria {}".format(len(self._attribute_table), filter_upward))
+                print(
+                    "# {:>5} symbols meet filter_upward criteria {}".format(len(self._attribute_table), filter_upward))
 
             if self.kwargs["filter_ema_slice"]:
                 filter_ema_slice = int(self.kwargs["filter_ema_slice"])

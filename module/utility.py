@@ -166,6 +166,10 @@ def get_output_filename(infile, **kwargs):
         file_name = file_name + ".sInd"
     if ',' in kwargs["sort_sink"]:
         file_name = file_name + ".ssk" + kwargs["sort_sink"].replace(',', '_')
+
+    if ',' in kwargs["sort_change_to_ref"]:
+        file_name = file_name + ".sChgRef" + kwargs["sort_change_to_ref"].replace(',', '_')
+
     if kwargs["sort_earningDate"]:
         file_name = file_name + ".sed"
     if kwargs["filter_macd_sgl"]:
