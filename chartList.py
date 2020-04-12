@@ -111,7 +111,7 @@ def chart_securities(file, **kwargs):
                 else:
                     daily_price = daily_price.head(row_num-LAST_REMOVED_ROWS)
 
-            rsi = str( sts.get_rsi())[0:4]
+            rsi = str( sts.get_rsi(14))[0:4]
 
             if kwargs["weekly_chart"]:
                 daily_price = TimeSeriesPlus(daily_price).get_weekly()

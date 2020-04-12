@@ -386,7 +386,7 @@ class TimeSeriesPlus:
         PRICE = 10
         prediction = AVOID
         self.macd_cross_up()
-        self.do_rsi()
+        self.do_rsi_wilder()
 
         sts0 = self.df.copy(deep=True)
         sts = self.df.copy(deep=True)
@@ -555,23 +555,30 @@ class TimeSeriesPlus:
 
         self.df['RSI'] = df['RSI']
 
-    def do_rsi_e(self, n=14):
+    def do_rsi_ema(self, n=14):
         df = self.df.copy(deep=True)
         # print (df.shape)
         df['delta'] = df['4. close'].diff()
         df['dltup'] = np.where(df['delta'] < 0, 0, df['delta'])
         df['dltdw'] = np.where(df['delta'] > 0, 0, df['delta'])
-        # df['dltup_rol']=df['dltup'].ewm(span=n,adjust=False).mean()
-        # df['dltdw_rol']=df['dltdw'].ewm(span=n,adjust=False).mean().abs()
-
-        df['dltup_rol'] = df['dltup'].rolling(n).mean()
-        df['dltdw_rol'] = df['dltdw'].rolling(n).mean()
-
+        df['dltup_rol']=df['dltup'].ewm(span=n,adjust=False).mean()
+        df['dltdw_rol']=df['dltdw'].ewm(span=n,adjust=False).mean().abs()
         df['RSI'] = 100 - (100 / (1 + df['dltup_rol'] / df['dltdw_rol']))
         self.df['RSI'] = df['RSI']
 
+    def do_rsi_wilder(self, n=14):
+        """Wilder’s Smoothing Method
+            
+            SPANwilder = SPANema*2 -1 (this is the commonly used calculation)
+        
+        Args:
+            n (int): span
+        """
+        n = n*2 -1
+        self.do_rsi_ema(n)
+
     def get_rsi(self, n=14):
-        self.do_rsi(n)
+        self.do_rsi_wilder(n)
         return self.df['RSI'][-1]
 
     def cross_up(self, indicator1, indicator2, days):
