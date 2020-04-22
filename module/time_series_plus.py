@@ -102,15 +102,17 @@ class TimeSeriesPlus:
     #     return status
 
     def macd_cross_up(self, sspan=12, lspan=26, persist=1):
+        """MACD crosses above signal line
+
+        Args:
+            sspan (int): length of short span for MACD calculation
+            lspan (int): length of long span for MACD calculation
+            presist (int): days allow after crossing above
+        Returns:
+            status (boolean):
         """
-        
-        
-            00000111
-            00000011
-            00000001
-        """
+
         df = self.df
-        # df=self.df.copy(deep=True)
         exp1 = df['4. close'].ewm(span=sspan, adjust=False).mean()
         exp2 = df['4. close'].ewm(span=lspan, adjust=False).mean()
         macd = exp1 - exp2
@@ -119,16 +121,15 @@ class TimeSeriesPlus:
         df["signal"] = np.where(df["signal"] > 0, 1, 0)
 
         status = 0
-        tail = df["signal"][-8:]
+        tail = df["signal"][-8:]    # examine the last 8 days
         switch = tail.diff().sum()
         landing = tail.sum()
-        if (tail[0] == 0 and
-                tail[-1] == 1 and
-                switch == 1 and
-                landing <= persist and
-                exp3[-1] < 0):
+        if (tail[0] == 0 and                # at the first day macd is below signal line
+                tail[-1] == 1 and           # at the last day macd is above signal line
+                switch == 1 and             # only one corssing happened
+                landing <= persist and      # days elapsed after crossing is less than cutoff (persist)
+                exp3[-1] < 0):              # signal line is below zero
             status = 1
-        # print(tail)
         return status
 
     def stochastic_cross_internal(self, n, m):
@@ -593,7 +594,7 @@ class TimeSeriesPlus:
         else:
             return True
 
-    def stay_up(self, indicator1, indicator2, days):
+    def converge(self, indicator1, indicator2, days):
         # print ('*', days)
         df = self.df.copy(deep=True)
         df['signal'] = df[indicator1] - df[indicator2]
@@ -610,7 +611,7 @@ class TimeSeriesPlus:
         last_day = self.df.copy(deep=True).iloc[-1, :]
         status = False
         if last_day['3. low'] <= last_day[indicator] <= last_day['4. close']:
-            if self.stay_up('3MA', indicator, days):
+            if self.converge('3MA', indicator, days):
                 status = True
         return status
 

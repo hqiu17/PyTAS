@@ -216,10 +216,14 @@ class AttributeTable:
                 #     K line with 14-day EMA and D line with 20-day EMA
 
                 filter_macd_sgl = self.kwargs["filter_macd_sgl"]
-                try:
-                    (sspan, lspan, days) = list(map(int, filter_macd_sgl.split(',')))
-                except ValueError:
-                    print(f"macd argument cannot be recognized {filter_macd_sgl}")
+                args = filter_macd_sgl.split(',')
+                if len(args) == 2:
+                    (sspan, lspan) = list(map(int, args))
+                    days = 1
+                elif len(args) == 3:
+                    (sspan, lspan, days) = list(map(int, args))
+                else:
+                    print(f"macd argument cannot be recognized: {filter_macd_sgl}")
                     exit(1)
 
                 self._attribute_table["Sort"] = 0
@@ -375,6 +379,7 @@ class AttributeTable:
                     "# {:>5} symbols meet filter_upward criteria {}".format(len(self._attribute_table), filter_upward))
 
             if self.kwargs["filter_ema_slice"]:
+                # TBD: add look-back non-converge period
                 filter_ema_slice = int(self.kwargs["filter_ema_slice"])
 
                 self._attribute_table["Sort"] = False
@@ -382,4 +387,4 @@ class AttributeTable:
                     self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].touch_down(filter_ema_slice)
 
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
-                print("# {:>5} symbols meet EMA slice criteria {}".format(len(self._attribute_table), filter_ema_slice))
+                print("# {:>5} symbols meet EMA slice criteria: {}".format(len(self._attribute_table), filter_ema_slice))
