@@ -156,8 +156,6 @@ def get_output_filename(infile, **kwargs):
         file_name = file_name + ".str" + kwargs["sort_trange"].replace(',', '_')
     if kwargs["sort_ema_distance"] > 0:
         file_name = file_name + ".sEmaDist" + str(kwargs["sort_ema_distance"])
-    if kwargs["sort_bbdistance"]:
-        file_name = file_name + ".sbd" + kwargs["sort_bbdistance"].replace(',', '_')
     if kwargs["sort_brokerrecomm"]:
         file_name = file_name + ".sbr"
     if kwargs["sort_performance"] > 0:
@@ -178,6 +176,8 @@ def get_output_filename(infile, **kwargs):
         file_name = file_name + ".fStcs" + kwargs["filter_stochastic_sgl"].replace(',', '-')
     if kwargs["filter_ema_slice"]:
         file_name = file_name + ".fEmaSli" + kwargs["filter_ema_slice"].replace(',', '-')
+    if kwargs["filter_bbdistance"]:
+        file_name = file_name + ".fBolDist" + kwargs["filter_bbdistance"].replace(',', '_')
     if kwargs["two_dragon"]:
         file_name = file_name + ".2drgn" + kwargs["two_dragon"].replace(',', '-')
     if kwargs["weekly"]:

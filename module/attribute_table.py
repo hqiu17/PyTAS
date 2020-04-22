@@ -4,6 +4,7 @@ AttributeTable class and methods
 
 import os
 import sys
+import math
 import pandas as pd
 import module.utility as utility
 from module.time_series_plus import TimeSeriesPlus
@@ -97,7 +98,8 @@ class AttributeTable:
             annot = ""
             # prepare header for display in chart
             if "Zacks Rank" in row:
-                header = header + " zr{}".format(str(int(row["Zacks Rank"])))
+                if row["Zacks Rank"] and not math.isnan(row["Zacks Rank"]):
+                    header = header + " zr{}".format(str(int(row["Zacks Rank"])))
             if "Value Score" in row:
                 header = header + "{}/{}".format(row["Value Score"], row["Growth Score"])
             if "# Rating Strong Buy or Buy" in row and "# of Brokers in Rating" in row:
@@ -215,14 +217,14 @@ class AttributeTable:
 
                 filter_macd_sgl = self.kwargs["filter_macd_sgl"]
                 try:
-                    (sspan, lspan) = list(map(int, filter_macd_sgl.split(',')))
+                    (sspan, lspan, days) = list(map(int, filter_macd_sgl.split(',')))
                 except ValueError:
-                    print("macd argument cannot be recognized")
+                    print(f"macd argument cannot be recognized {filter_macd_sgl}")
                     exit(1)
 
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].macd_cross_up(sspan, lspan, 3)
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].macd_cross_up(sspan, lspan, days)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
                 print(len(self._attribute_table), " symbols meet user criterion")
 
@@ -254,7 +256,7 @@ class AttributeTable:
                     cutoff = float(cutoff)
                 except:
                     e = sys.exc_info()[0]
-                    print("x-> stochastic input is invalide ", e)
+                    print("x-> invalid stochastic argument input ", e)
                     sys.exit(1)
 
                 for symbol in self._attribute_table.index:
@@ -320,17 +322,32 @@ class AttributeTable:
                     self._attribute_table["Date Sold"] = subject
 
             # method filter and sort by last close to bollinger band bottom border distance
-            if self.kwargs["sort_bbdistance"]:
-                sort_bbdistance = self.kwargs["sort_bbdistance"]
-                list_arg = sort_bbdistance.split(',')
+            if self.kwargs["filter_bbdistance"]:
+                filter_bbdistance = self.kwargs["filter_bbdistance"]
+                list_arg = filter_bbdistance.split(',')
                 cutoff = float(list_arg[0])
                 days = 1
-                if len(list_arg) == 2:
+                test_bband_uptrend = False
+                if len(list_arg) >= 2:
                     days = int(list_arg[1])
+                if len(list_arg) == 3 and list_arg[2] =='up':
+                    test_bband_uptrend = True
 
                 self._attribute_table["Sort"] = 0
                 for symbol, row in self._attribute_table.iterrows():
                     self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_BBdistance(days)
+                    df = self.sts_daily[symbol].df
+
+                    if test_bband_uptrend:
+                        BB20d_uptrend = True
+                        if df['BB20d'][-1] <= df['BB20d_SMA10'][-1]:
+                            BB20d_uptrend = False
+                        elif df['BB20d'][-3] <= df['BB20d_SMA10'][-3]:
+                            BB20d_uptrend = False
+                        elif df['BB20d'][-5] <= df['BB20d_SMA10'][-5]:
+                            BB20d_uptrend = False
+                        if not BB20d_uptrend:
+                            self._attribute_table.loc[symbol, "Sort"] = 1
 
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] <= cutoff]
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)

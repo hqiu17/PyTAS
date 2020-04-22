@@ -7,6 +7,7 @@ from module.candlestick import date_to_index
 class TimeSeriesPlus:
     def __init__(self, df):
         self.df = df.copy(deep=True)
+        self.sma_multiple()
 
     def get_latest_performance(self, period):
         """ 
@@ -39,7 +40,6 @@ class TimeSeriesPlus:
         return distance
 
     def get_BBdistance(self, days=1):
-        self.sma_multiple()
         df = self.df.copy(deep=True)
         if days > 1:
             df["lowrol"] = df["3. low"].rolling(days).min()
@@ -256,7 +256,7 @@ class TimeSeriesPlus:
         df['STD20'] = df["4. close"].rolling(20).std()
         df['BB20u'] = df['20SMA'] + df['STD20'] * 2
         df['BB20d'] = df['20SMA'] - df['STD20'] * 2
-        #df['BB20d_SMA10'] = df['BB20d'].rolling(10).mean()
+        df['BB20d_SMA10'] = df['BB20d'].rolling(10).mean()
         return self
 
     def to_weekly(self):

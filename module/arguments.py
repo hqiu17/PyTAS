@@ -84,7 +84,7 @@ def get_parser():
                         type=int, default=0)
     parser.add_argument("-smd", "--sort_ema_distance", help=": sort by last close to SMA distance",
                         type=int, default=0)
-    parser.add_argument("-sbd", "--sort_bbdistance", type=str, default="",
+    parser.add_argument("-sbd", "--filter_bbdistance", type=str, default="",
                         help=": sort by distance to bollinger band bottom (eg, -sbd 0.05,3: distance <0.05 in any of "
                              "the last 3 days)")
     parser.add_argument("-bld", "--blind", help=": ignore recent period defined in days (for hypothesis test)",

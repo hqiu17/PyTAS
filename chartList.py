@@ -83,6 +83,8 @@ def chart_securities(file, **kwargs):
     tickers.work()
     df = tickers.get_attribute_table()
 
+
+
     # check for SPY data and add it to dataframe as background
     spy = directory+"/"+"SPY"+".txt"
     ref = get_benchmark(spy, LAST_REMOVED_ROWS)
