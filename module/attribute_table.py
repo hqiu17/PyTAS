@@ -276,14 +276,14 @@ class AttributeTable:
                         self._attribute_table.drop(symbol, inplace=True)
                 print("# {:>5} symbols meet stochastic criteria".format(len(self._attribute_table)))
 
-            if self.kwargs["two_dragon"]:
-                two_dragon = self.kwargs["two_dragon"]
-                array = two_dragon.split(',')
+            if self.kwargs["filter_parallel_ema"]:
+                args = self.kwargs["filter_parallel_ema"]
+                array = args.split(',')
                 array2 = []
                 try:
                     array2 = list(map(int, array[0:3]))
                 except ValueError:
-                    print(f" argument {two_dragon} is invalid")
+                    print(f" argument {args} is invalid")
                     exit(1)
                 if len(array) == 4:
                     array2.append(float(array[3]))
@@ -293,7 +293,7 @@ class AttributeTable:
                     self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].two_dragon(*array2)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
 
-                print("# {:>5} symbols meet 2dragon criteria {}".format(len(self._attribute_table), two_dragon))
+                print("# {:>5} symbols meet filter_parallel_ema criteria {}".format(len(self._attribute_table), args))
 
             if self.kwargs["sort_change_to_ref"]:
                 # Sort securities by price change in a defined date or 
