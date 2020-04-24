@@ -152,37 +152,41 @@ class TimeSeriesPlus:
         return stok[-1], stod[-1], signal[-1], paction[-1]
 
     def two_dragon_internal(self, MAdays1, MAdays2, TRNDdays, dataframe, cutoff=0.8):
-        """ Test uptrend defined by 2 moving average indicators (internal version).
-            In the defined period 'TRNDdays', if 80% of datapoint has moving average1
-            greater than moving average2, return status(=1). 
-            for downtrend, status (== -1) is returned
+        """ Test parallel ema in defined period
+        Args:
+            MAdays1 (int): length for 1st ema
+            MAdays2 (int): length for 2nd ema
+            TRNDdays (int): period to test parallel
+            dataframe (pandas dataframe): historical data
+            cutoff (float): frequency of datapoint supporting parallel
+        Returns:
+            status (boolean): test result
         """
-        status = 0
+
+        status = 0  # =0: undetermined status; =1: 1st ema above 2nd ema; =-1: 1st ema below 2nd ema
+
         df = dataframe.copy(deep=True)
         ma1_key = str(MAdays1) + "MA"
         ma2_key = str(MAdays2) + "MA"
 
         # print (MAdays1, MAdays2, TRNDdays, cutoff)
-
-        pd.set_option('display.max_rows', None)
-
+        # pd.set_option('display.max_rows', None)
         # print( df[['50MA','200MA']].tail(TRNDdays) )
+
+        # if dataframe length is not sufficient to calculate ema, return 0
+        if ((TRNDdays + MAdays1) > df.shape[0] or (TRNDdays + MAdays2) > df.shape[0]):
+            print(f"the timeseries data length {df.shape[0]} is not sufficient to calculate ema")
+            return status
 
         if ma1_key in df.columns and ma2_key in df.columns:
             df['ma01'] = df[ma1_key]
             df['ma02'] = df[ma2_key]
-        elif ((TRNDdays + MAdays1) > df.shape[0] or (TRNDdays + MAdays2) > df.shape[0]):
-            # print (f"Moving-avg {MAdays1} vs. {MAdays2} and window {TRNDdays} cannot be estimated for small data with {df.shape[0]} rows")
-            print(f"the data size {df.shape[0]}-days is not sufficent for accurate calculation")
-            # exit(1)
-            return status
         else:
             df['ma01'] = df["4. close"].ewm(span=MAdays1, adjust=False).mean()
             df['ma02'] = df["4. close"].ewm(span=MAdays2, adjust=False).mean()
 
         sgnl = df["ma01"] - df["ma02"]
         df["signal"] = np.where(sgnl > 0, 1, 0)
-
         ratio = df.tail(TRNDdays)['signal'].sum() / TRNDdays
 
         # print ('-->', ratio)
@@ -196,11 +200,8 @@ class TimeSeriesPlus:
 
         return status
 
-    # def two_dragon(self, MAdays1, MAdays2, TRNDdays, cutoff=0.8):
     def two_dragon(self, *args):
-        """ Test uptrend defined by 2 moving average indicators (internal version).
-            In the defined period 'TRNDdays', if 80% of datapoint has moving average1
-            greater than moving average2, return status(=1). 
+        """ Test parallel ema in defined period
         """
         cutoff = 0.8
         if len(args) == 4: cutoff = args[3]
