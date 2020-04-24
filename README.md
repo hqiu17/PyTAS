@@ -97,19 +97,25 @@ chartList.py --dir download sample.txt --sort_change_to_ref 2018-09-10,2018-09-1
 
 ### 4. Filtering equities 
 
-#### 4.1 --filter_upward
+#### 4.1 --filter_parallel_ema
+Filter for equities with EMA lines (20EMA and 50EMA) being parallel in defined recent period (30 days). This pattern is supported by at least a proportion (0.95) of the days in the sampled period.
+```
+chartList.py --dir download sample.txt --filter_parallel_ema 20,50,30,0.95 --days 80
+```
+
+#### 4.2 --filter_upward
 Filter for equities in uptrend pattern. The uptrend is defined by length of period (160 days) and frequency (0.8) of days supporting an uptrend pattern (20EMA>50EMA>150EMA):
 ```
 chartList.py --dir download sample.txt --filter_upward 160,0.8  
 ```
 
-#### 4.2 --filter_ema_slice
+#### 4.3 --filter_ema_slice
 Filter for equities with last trading range intersected by key SMA lines (e.g., 100SMA). The options include 20, 50, 100, 150, and 200.
 ```
 chartList.py --dir download sample.txt --filter_ema_slice 100   
 ```
 
-#### 4.3 --filter_macd_sgl
+#### 4.4 --filter_macd_sgl
 Filter for equities with macd line staying below signal line for at least 8 days and then crossing above at the last trading day. Macd line is calculated from two specified EMA(14 and 26)
 ```
 chartList.py --dir download sample.txt --filter_macd_sgl 12,26
@@ -119,7 +125,7 @@ Filter for equities with macd line staying below signal line for at least 5 days
 chartList.py --dir download sample.txt --filter_macd_sgl 12,26,3
 ```
 
-#### 4.4 --filter_stochastic_sgl
+#### 4.5 --filter_stochastic_sgl
 Filter for equities with K line crossing above D line and staying below D-value cutoff (30) at the last trading day. K and D lines are calculated with look-back period (14 days) and 3-day EMA smoothing, respectively. 
 ```
 chartList.py --dir download sample.txt --filter_stochastic_sgl 14,3,30,crs
@@ -129,7 +135,7 @@ Filter for equities with K staying above D and below cutoff (not requiring cross
 chartList.py --dir download sample.txt --filter_stochastic_sgl 14,3,30,all
 ```
 
-#### 4.5 --filter_bbdistance
+#### 4.6 --filter_bbdistance
 Filter for equities with normalized distance (<0.05) between last close and Bollinger lower boundary. The normalization is done dividing the difference between the last closing price and Bollinger lower band by the width of Bollinger band in the same day. 
 ```
 chartList.py --dir download sample.txt --filter_bbdistance 0.05 --day 60
@@ -137,6 +143,3 @@ chartList.py --dir download sample.txt --filter_bbdistance 0.05 --day 60
 Filter for equities with normalized distance (<0.05) between closing price and Bollinger lower boundary within the last 3 days. 
 ```
 chartList.py --dir download sample.txt --filter_bbdistance 0.05,3 --days 60
-```
-
-
