@@ -184,7 +184,7 @@ def get_benchmark(file, remove_recent=0):
     """
     ref = pd.DataFrame()
     if os.path.exists(file):
-        mydf=pd.read_csv(file,sep="\t", parse_dates=['date'],
+        mydf = pd.read_csv(file,sep="\t", parse_dates=['date'],
                          index_col=['date'])
 
         # find go-long period

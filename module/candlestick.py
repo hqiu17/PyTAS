@@ -294,9 +294,10 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
             if 'BB20d_SMA10' in df:
                 df['BB20d_SMA10'].plot()
 
-    # plot candlesticks (core data)
-    if df.shape[0] > 15 and df.shape[0] <= 120:
-        df_recent = df.tail(20)
+    # plot candlesticks (core data) for the most recent period
+    recent_days = 20
+    if 15 < df.shape[0] <= 120:
+        df_recent = df.tail(recent_days)
         for num, data in df_recent.iterrows():
             price_low = data["3. low"]
             price_range = data["2. high"] - data["3. low"]

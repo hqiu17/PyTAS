@@ -106,7 +106,7 @@ def maneuver_asymbol(ticker, outfile, safenest, num=0, pause=11):
     # backup outfile
     if os.path.isfile(outfile):
         outfile_basename = os.path.basename(outfile)
-        outfile_backup   = os.path.join(safenest, outfile_basename)
+        outfile_backup = os.path.join(safenest, outfile_basename)
         os.rename(outfile, outfile_backup)
         msg = "; previous download is relocated"
     
@@ -240,7 +240,7 @@ if __name__ == "__main__":
                              "files regardless of their creation date",
                         action='store_true')
     parser.add_argument("--backup",
-                        default=".avbackup",
+                        default=".pytas_backup",
                         help=": backup directory to hold all previous"
                              "downloads (default='./avbackup')")
     parser.add_argument("--pause",
