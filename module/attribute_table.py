@@ -407,7 +407,7 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = False
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].touch_down(filter_ema_slice)
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].ema_slice(filter_ema_slice)
 
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
                 print("# {:>5} symbols meet EMA slice criteria: {}".format(len(self._attribute_table), filter_ema_slice))

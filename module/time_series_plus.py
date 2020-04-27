@@ -607,14 +607,18 @@ class TimeSeriesPlus:
         else:
             return False
 
-    def touch_down(self, indicator, days=5):
+    def ema_slice(self, indicator, days=5):
         indicator = str(indicator) + 'MA'
-        last_day = self.df.copy(deep=True).iloc[-1, :]
+        last_day = self.df.iloc[-1, :]
         status = False
         if last_day['3. low'] <= last_day[indicator] <= last_day['4. close']:
-            if self.converge('3MA', indicator, days):
-                status = True
+            status = True
+            # if self.converge('3MA', indicator, days):
+            #     status = True
         return status
+
+
+    
 
     #     def get_referenced_change(self, reference_date, days):
     #         self.df["date"] = self.df.index
