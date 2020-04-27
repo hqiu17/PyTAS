@@ -51,6 +51,10 @@ def get_parser():
                         help=": last price range is sliced (or intersected) by key EMA (20, 50, 100, 200)")
     parser.add_argument("-pema", "--filter_parallel_ema", type=str, default="",
                         help=": filter for 2 ema that are largely parallel in defined period, e.g., 20,50,60 or 20,50,60,0.8")
+    parser.add_argument("-espt", "--filter_hit_ema_support", type=str, default="",
+                        help=": filter for last close hitting ema from above, e.g., 100,10")
+
+
     # SORT
     parser.add_argument("-szk","--sort_zacks", type=str, default="",
                         help=': sort (and filter)symbols by zacks type value(V) or growth(G) rank. example -szk V,a')
@@ -75,10 +79,10 @@ def get_parser():
                              "the last 3 days)")
     parser.add_argument("-bld", "--blind", type=int, default=0,
                         help=": ignore recent period defined in days (for hypothesis test)")
-    # SAMPLING                        
-    # parser.add_argument("-smpl", "--sample",
-    #                     type=str, default="",
-    #                     help=": strategical sampling of historical data point: stks_bb, below_bb, plunge_macd")
+    #SAMPLING
+    parser.add_argument("-smpl", "--sample",
+                        type=str, default="",
+                        help=": strategical sampling of historical data point: stks_bb, below_bb, plunge_macd")
 
     # SKIP CHARTING
     parser.add_argument("-f", "--filterOnly", default=False,

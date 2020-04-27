@@ -318,6 +318,20 @@ class AttributeTable:
 
                 print("# {:>5} symbols meet filter_parallel_ema criteria {}".format(len(self._attribute_table), args))
 
+            if self.kwargs["filter_hit_ema_support"]:
+                args = self.kwargs["filter_hit_ema_support"]
+                array = args.split(',')
+                try:
+                    (ema, days) = list(map(int, array))
+                except ValueError:
+                    raise
+
+                self._attribute_table["Sort"] = False
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].hit_ema_support(ema, days)
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
+                print("# {:>5} symbols meet filter_hit_ema_support {}".format(len(self._attribute_table), args))
+
             if self.kwargs["sort_change_to_ref"]:
                 # Sort securities by price change in a defined date or 
                 #   period relative to a reference date

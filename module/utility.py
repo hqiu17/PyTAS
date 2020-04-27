@@ -180,6 +180,10 @@ def get_output_filename(infile, **kwargs):
         file_name = file_name + ".fBolDist" + kwargs["filter_bbdistance"].replace(',', '_')
     if kwargs["filter_parallel_ema"]:
         file_name = file_name + ".fParEma" + kwargs["filter_parallel_ema"].replace(',', '-')
+    if kwargs["filter_hit_ema_support"]:
+        file_name = file_name + ".fEmaSpt" + kwargs["filter_hit_ema_support"].replace(',', '-')
+
+
     if kwargs["weekly"]:
         file_name = file_name + ".week"
     if kwargs["weekly_chart"]:

@@ -201,12 +201,21 @@ class TimeSeriesPlus:
         return status
 
     def two_dragon(self, *args):
-        """ Test parallel ema in defined period
+        """ Test 2 parallel EMAs in defined period
         """
         cutoff = 0.8
         if len(args) == 4: cutoff = args[3]
         status = self.two_dragon_internal(args[0], args[1], args[2], self.df, cutoff)
         return status
+
+    def hit_ema_support(self, ema, days):
+        if not self.ema_slice(ema):
+            return False
+        stay_above = self.two_dragon_internal(3, ema, days, self.df, 0.95)
+        if stay_above == 1:
+            return True
+        else:
+            return False
 
     def in_uptrend_internal(self, dataframe, TRNDdays, cutoff, blind):
         """ 
@@ -607,18 +616,14 @@ class TimeSeriesPlus:
         else:
             return False
 
-    def ema_slice(self, indicator, days=5):
+    def ema_slice(self, indicator):
         indicator = str(indicator) + 'MA'
         last_day = self.df.iloc[-1, :]
         status = False
         if last_day['3. low'] <= last_day[indicator] <= last_day['4. close']:
             status = True
-            # if self.converge('3MA', indicator, days):
-            #     status = True
         return status
 
-
-    
 
     #     def get_referenced_change(self, reference_date, days):
     #         self.df["date"] = self.df.index
