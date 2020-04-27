@@ -118,6 +118,21 @@ class AttributeTable:
 
         self._attribute_table = df
 
+    def df_rename_columns(self, df):
+        if 'Date' in df.columns:
+            df.rename(columns={'Date':'date'}, inplace=True)
+        if 'Open' in df.columns:
+            df.rename(columns={'Open':'1. open'}, inplace=True)
+        if 'High' in df.columns:
+            df.rename(columns={'High':'2. high'}, inplace=True)
+        if 'Low' in df.columns:
+            df.rename(columns={'Low':'3. low'}, inplace=True)
+        if 'Close' in df.columns:
+            df.rename(columns={'Close':'4. close'}, inplace=True)
+        if 'Volume' in df.columns:
+            df.rename(columns={'Volume':'5. volume'}, inplace=True)
+        return df
+
     def read_timeseries(self):
         """Read price data for each security and load into memory
            Securities without price data are dropped.
@@ -127,7 +142,15 @@ class AttributeTable:
         for symbol, row in self._attribute_table.iterrows():
             file = self.data_dir + "/" + symbol + ".txt"
             if os.path.exists(file):
-                price = pd.read_csv(file, sep="\t", parse_dates=['date'], index_col=['date'])
+                try:
+                    price = pd.read_csv(file, sep="\t", parse_dates=['date'], index_col=['date'])
+                except ValueError:
+                    price = pd.read_csv(file, sep="\t", parse_dates=['Date'], index_col=['Date'])
+                    price = self.df_rename_columns(price)
+                except:
+                    e = sys.exc_info()[0]
+                    print("x-> Error while reading historical data; ", e)
+                price = price.sort_index(axis = 0)
                 sts = TimeSeriesPlus(price).sma_multiple()
                 dict_sts[symbol] = sts
             else:

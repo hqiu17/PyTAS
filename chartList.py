@@ -186,6 +186,7 @@ def get_benchmark(file, remove_recent=0):
     if os.path.exists(file):
         mydf = pd.read_csv(file,sep="\t", parse_dates=['date'],
                          index_col=['date'])
+        mydf = mydf.sort_index(axis=0)
 
         # find go-long period
         mydf = candlestick.add_moving_averages(mydf)
