@@ -8,6 +8,33 @@ class TimeSeriesPlus:
     def __init__(self, df):
         self.df = df.copy(deep=True)
         self.sma_multiple()
+        self.find_pivot(5)
+
+    def sma_multiple(self):
+        ma_days = [3, 20, 50, 100, 150, 200]
+        df = self.df
+        for days in ma_days:
+            # df[str(days)+'MA'] = df["4. close"].rolling(days).mean()
+            df[str(days) + 'MA'] = df["4. close"].ewm(span=days, adjust=False).mean()
+        # simple moving average for bollinger band
+        df["20SMA"] = df["4. close"].rolling(20).mean()
+        df['STD20'] = df["4. close"].rolling(20).std()
+        df['BB20u'] = df['20SMA'] + df['STD20'] * 2
+        df['BB20d'] = df['20SMA'] - df['STD20'] * 2
+        df['BB20d_SMA10'] = df['BB20d'].rolling(10).mean()
+        return self
+
+    def find_pivot(self, df, length):
+        df = self.df
+        df['max'] = df['Close'].rolling(length).max()
+        df['maxrev'] = df['Close'][::-1].rolling(length).max()[::-1]
+        df['pivot_high'] = np.where((df['Close'] == df['max']) & (df['Close'] == df['maxrev']), True, False)
+        df['min'] = df['Close'].rolling(length).min()
+        df['minrev'] = df['Close'][::-1].rolling(length).min()[::-1]
+        df['pivot_low'] = np.where((df['Close'] == df['min']) & (df['Close'] == df['minrev']), True, False)
+        df['pivot'] = (df['pivot_high'] | df['pivot_low'])
+        df = df.drop(['max', 'maxrev', 'min', 'minrev', 'pivot_low', 'pivot_high'], axis=1)
+        return self
 
     def get_latest_performance(self, period):
         """ 
@@ -255,20 +282,6 @@ class TimeSeriesPlus:
         if len(args) == 2: cutoff = float(args[1])
         if len(args) == 3: blind = int(args[2])
         return self.in_uptrend_internal(self.df, TRNDdays, cutoff, blind)
-
-    def sma_multiple(self):
-        ma_days = [3, 20, 50, 100, 150, 200]
-        df = self.df
-        for days in ma_days:
-            # df[str(days)+'MA'] = df["4. close"].rolling(days).mean()
-            df[str(days) + 'MA'] = df["4. close"].ewm(span=days, adjust=False).mean()
-        # simple moving average for bollinger band
-        df["20SMA"] = df["4. close"].rolling(20).mean()
-        df['STD20'] = df["4. close"].rolling(20).std()
-        df['BB20u'] = df['20SMA'] + df['STD20'] * 2
-        df['BB20d'] = df['20SMA'] - df['STD20'] * 2
-        df['BB20d_SMA10'] = df['BB20d'].rolling(10).mean()
-        return self
 
     def to_weekly(self):
         logic = {'1. open': 'first',
