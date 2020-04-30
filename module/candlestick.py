@@ -200,8 +200,9 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
     # print (df0)
 
     df = df0  # .copy(deep=True)
+    # print(df.columns)
+    # print(df.head(5))
     # figure out the maximum/minimum of x/y axis
-    #
     sample_size = len(df.index)
     fig_ymin = df.min(axis=0)["3. low"]
     fig_ymax = df.max(axis=0)["2. high"]
@@ -218,7 +219,7 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
     # release redraw signal if dramatic price change present in
     # the data
     fold_change = fig_ymax / df["4. close"].iloc[-1]
-    if (fold_change > foldchange_cutoff):
+    if fold_change > foldchange_cutoff:
         redraw = 1
 
     # draw horizontal lines for last day's low and close
@@ -229,20 +230,17 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
         color_closing = "red"
     plt.axhline(y=df.iloc[-1]["1. open"], color=color_closing, linewidth=0.2)
     plt.axhline(y=df.iloc[-1]["4. close"], color=color_closing, linewidth=0.2)
-
     plt.axhspan(df.iloc[-1]["1. open"], df.iloc[-1]["4. close"], color=color_closing, alpha=0.3)
 
     # plot year by year vertical lines
-    """
-    if sample_size > 480:
-        plt.axvspan(df.index[-480],df.index[-241],color="grey", alpha=0.1)
-    elif sample_size > 240:
-        plt.axvspan(df.index[0],df.index[-241],color="grey", alpha=0.1)
-    if sample_size > 80 and sample_size < 240:
-        plt.axvspan(df.index[-80],df.index[-60],color="grey", alpha=0.1)
-    if sample_size > 40 and sample_size < 240:
-        plt.axvspan(df.index[-40],df.index[-20],color="grey", alpha=0.1)
-    """
+    # if sample_size > 480:
+    #     plt.axvspan(df.index[-480],df.index[-241],color="grey", alpha=0.1)
+    # elif sample_size > 240:
+    #     plt.axvspan(df.index[0],df.index[-241],color="grey", alpha=0.1)
+    # if sample_size > 80 and sample_size < 240:
+    #     plt.axvspan(df.index[-80],df.index[-60],color="grey", alpha=0.1)
+    # if sample_size > 40 and sample_size < 240:
+    #     plt.axvspan(df.index[-40],df.index[-20],color="grey", alpha=0.1)
 
     # # plot 2018 dip / trade war
     # index1 = date_to_index(pd.to_datetime("2018-12-26 00:00:00"), df['Date close'])
@@ -294,8 +292,13 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
             if 'BB20d_SMA10' in df:
                 df['BB20d_SMA10'].plot()
 
+    # plot pivot
+    pivot = df.copy(deep=True)
+    pivot = pivot[pivot['pivot']>0]
+    plt.plot(pivot['xcord'],pivot['pivot'], linestyle='-', marker='o', markersize=6, color='#1f77b4', linewidth=2)
+
     # plot candlesticks (core data) for the most recent period
-    recent_days = 20
+    recent_days = 60
     if 15 < df.shape[0] <= 120:
         df_recent = df.tail(recent_days)
         for num, data in df_recent.iterrows():
@@ -314,22 +317,21 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
             if sample_size < 360:
                 plt.bar(data["xcord"], price_range, data["width"] / 5, bottom=price_low, color=data["color"])
 
-            # plot market benchmark data S&P500
-            if sample_size < 200 and "weather" in df.columns:
-                mchange = data["weather"]
-                mycolor = "yellow"
-                if mchange > 0:
-                    mycolor = "green"
-                    height = (fig_ymax - fig_ymin) * mchange * 50  # 50X change percentage, 2% hit ceiling
-                    plt.bar(data["xcord"], height, data["width"], bottom=fig_ymin, color=mycolor, alpha=0.2)
-                elif mchange < 0:
-                    mycolor = "red"
-                    height = (fig_ymax - fig_ymin) * (0 - mchange) * 50  # 50X change percentage, -2% touch ground
-                    plt.bar(data["xcord"], height, data["width"], bottom=fig_ymax - height, color=mycolor, alpha=0.2)
+            # # plot market benchmark data S&P500
+            # if sample_size < 200 and "weather" in df.columns:
+            #     mchange = data["weather"]
+            #     mycolor = "yellow"
+            #     if mchange > 0:
+            #         mycolor = "green"
+            #         height = (fig_ymax - fig_ymin) * mchange * 50  # 50X change percentage, 2% hit ceiling
+            #         plt.bar(data["xcord"], height, data["width"], bottom=fig_ymin, color=mycolor, alpha=0.2)
+            #     elif mchange < 0:
+            #         mycolor = "red"
+            #         height = (fig_ymax - fig_ymin) * (0 - mchange) * 50  # 50X change percentage, -2% touch ground
+            #         plt.bar(data["xcord"], height, data["width"], bottom=fig_ymax - height, color=mycolor, alpha=0.2)
                 # plt.bar(data["xcord"], (fig_ymax-fig_ymin)*0.05, data["width"], bottom=fig_ymin+(fig_ymax-fig_ymin)*0.95, color=mycolor )
                 # plt.bar(data["xcord"], (fig_ymax-fig_ymin), data["width"], bottom=fig_ymin, color=mycolor, alpha=0.2 )
 
-    #
     # plot stock name
     font = FontProperties()
     font = font.copy()
@@ -337,7 +339,6 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
     font.set_style('italic')
     # font.set_size('large')
 
-    #
     # plot figure title
     facecolor = 'white'
     if re.search(r'-[\d\.]+R', sticker):
@@ -422,6 +423,7 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
             fontsize=17, color=color,
             bbox=dict(facecolor=facecolor)
         )
+
     # print industry information if available
     if industry:
         plt.gca().text(
