@@ -24,16 +24,53 @@ class TimeSeriesPlus:
         df['BB20d_SMA10'] = df['BB20d'].rolling(10).mean()
         return self
 
-    def find_pivot(self, df, length):
-        df = self.df
-        df['max'] = df['Close'].rolling(length).max()
-        df['maxrev'] = df['Close'][::-1].rolling(length).max()[::-1]
-        df['pivot_high'] = np.where((df['Close'] == df['max']) & (df['Close'] == df['maxrev']), True, False)
-        df['min'] = df['Close'].rolling(length).min()
-        df['minrev'] = df['Close'][::-1].rolling(length).min()[::-1]
-        df['pivot_low'] = np.where((df['Close'] == df['min']) & (df['Close'] == df['minrev']), True, False)
-        df['pivot'] = (df['pivot_high'] | df['pivot_low'])
-        df = df.drop(['max', 'maxrev', 'min', 'minrev', 'pivot_low', 'pivot_high'], axis=1)
+    def find_pivot_simple(self, length):
+        """Infer pivots simply using closing price data
+        """
+        df = self.df.copy(deep=True)
+
+        df['max'] = df['4. close'].rolling(length).max()
+        df['min'] = df['4. close'].rolling(length).min()
+        df['maxrev'] = df['4. close'][::-1].rolling(length).max()[::-1]
+        df['pivot_high'] = np.where((df['4. close'] == df['max']) & (df['4. close'] == df['maxrev']), True, False)
+        df['minrev'] = df['4. close'][::-1].rolling(length).min()[::-1]
+        df['pivot_low'] = np.where((df['4. close'] == df['min']) & (df['4. close'] == df['minrev']), True, False)
+        self.df['pivot_simple'] = np.where((df['pivot_high'] | df['pivot_low']), df['4. close'], 0)
+        # return df['pivot']
+        # self.df = df.drop(['max', 'maxrev', 'min', 'minrev', 'pivot_low', 'pivot_high'], axis=1)
+        return self
+
+    def find_pivot_atr(self, length):
+        """Infer pivots simply using closing price and ATR data
+        """
+        self.get_atr(length, forward=True)
+        df = self.df.copy(deep=True)
+
+        df['max_atr'] = (df['4. close'] + df['ATR']).rolling(length).min()
+        df['max_atr_f'] = (df['4. close'] + df['ATRforward'])[::-1].rolling(length).min()[::-1]
+        df['max_atr_final'] = np.where( df['max_atr'] > df['max_atr_f'], df['max_atr'], df['max_atr_f'] )
+        df['min_atr'] = (df['4. close'] - df['ATR']).rolling(length).max()
+        df['min_atr_f'] = (df['4. close'] - df['ATRforward'])[::-1].rolling(length).max()[::-1]
+        df['min_atr_final'] = np.where( df['min_atr'] < df['min_atr_f'], df['min_atr'], df['min_atr_f'] )
+
+        df['max'] = df['4. close'].rolling(length).max()
+        df['max_f'] = df['4. close'][::-1].rolling(length).max()[::-1]
+        df['max_final'] = np.where(df['max'] > df['max_f'], df['max'], df['max_f'])
+        df['min'] = df['4. close'].rolling(length).min()
+        df['min_f'] = df['4. close'][::-1].rolling(length).min()[::-1]
+        df['min_final'] = np.where(df['min'] < df['min_f'], df['min'], df['min_f'])
+
+        df['pivot_high'] = np.where( (df['4. close'] == df['max_final']) & (df['4. close'] >= df['max_atr_final']), True, False)
+        df['pivot_low'] = np.where( (df['4. close'] == df['min_final']) & (df['4. close'] <= df['min_atr_final']), True, False)
+        self.df['pivot_atr'] = np.where((df['pivot_high'] | df['pivot_low']), df['4. close'], 0)
+        return self
+
+    def find_pivot(self, length):
+        """Combination of simple pivots and ATR-based pivots
+        """
+        self.find_pivot_simple(length*2)
+        self.find_pivot_atr(length)
+        self.df['pivot'] = np.where(self.df['pivot_simple'] > self.df['pivot_atr'], self.df['pivot_simple'], self.df['pivot_atr'] )
         return self
 
     def get_latest_performance(self, period):
@@ -530,13 +567,27 @@ class TimeSeriesPlus:
         if r > 0 and r < 0.001: r = 0
         return r
 
-    def get_atr(self, df):
-        df = df.copy(deep=True)
-        df['atr1'] = abs(df['2. high'] - df['3. low'])
-        df['atr2'] = abs(df['2. high'] - df['4. close'].shift())
-        df['atr3'] = abs(df['3. low'] - df['4. close'].shift())
-        df['ATR'] = df[['atr1', 'atr2', 'atr3']].max(axis=1)
-        return df
+    def get_atr(self, length, forward=False):
+        df = self.df.copy(deep=True)
+        high = df['2. high']
+        low = df['3. low']
+        close = df['4. close']
+
+        def do_atr(df, high, low, close):
+            df['atr1'] = abs(high - low)
+            df['atr2'] = abs(high - close.shift())
+            df['atr3'] = abs(low - close.shift())
+            df['atrmax'] = df[['atr1', 'atr2', 'atr3']].max(axis=1)
+            return df['atrmax'].rolling(length).mean()
+
+        self.df['ATR'] = do_atr(df, high, low, close)
+
+        if forward:
+            high = high[::-1]
+            low = low[::-1]
+            close = close[::-1]
+            self.df['ATRforward'] = do_atr(df, high, low, close)[::-1]
+        return self
 
     def do_rsi(self, n=14):
         df = self.df.copy(deep=True)
@@ -592,14 +643,15 @@ class TimeSeriesPlus:
 
     def do_rsi_wilder(self, n=14):
         """Wilder’s Smoothing Method
-            
+
             SPANwilder = SPANema*2 -1 (this is the commonly used calculation)
-        
+
         Args:
             n (int): span
         """
         n = n*2 -1
         self.do_rsi_ema(n)
+        return self
 
     def get_rsi(self, n=14):
         self.do_rsi_wilder(n)
