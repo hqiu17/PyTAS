@@ -184,8 +184,14 @@ def get_benchmark(file, remove_recent=0):
     """
     ref = pd.DataFrame()
     if os.path.exists(file):
-        mydf = pd.read_csv(file,sep="\t", parse_dates=['date'],
-                         index_col=['date'])
+        try:
+            mydf = pd.read_csv(file, sep="\t", parse_dates=['date'], index_col=['date'])
+        except ValueError:
+            mydf = pd.read_csv(file, sep="\t", parse_dates=['Date'], index_col=['Date'])
+            mydf['4. close'] = mydf['Close']
+        except:
+            e = sys.exc_info()[0]
+            print("x-> Error while reading historical data; ", e)
         mydf = mydf.sort_index(axis=0)
 
         # find go-long period
