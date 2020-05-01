@@ -8,7 +8,6 @@ class TimeSeriesPlus:
     def __init__(self, df):
         self.df = df.copy(deep=True)
         self.sma_multiple()
-        self.find_pivot(5)
 
     def sma_multiple(self):
         ma_days = [3, 20, 50, 100, 150, 200]
@@ -72,6 +71,47 @@ class TimeSeriesPlus:
         self.find_pivot_atr(length)
         self.df['pivot'] = np.where(self.df['pivot_simple'] > self.df['pivot_atr'], self.df['pivot_simple'], self.df['pivot_atr'] )
         return self
+
+    def horizon_slice(self, days):
+        df = self.df.copy(deep=True)
+        if df.shape[0] < 100:
+            return 0
+        df = df.tail(days)
+        # print(df.columns)
+        # print(df.head(5))
+
+        # define horizontal zone to capture pivots
+        last = df['4. close'][-1]
+        radius1 = df['ATR'][-1]/2   # by half of ATR
+        radius2 = last/50          # by 2% last colse
+        up_lim = max(last + radius1, last + radius2)
+        lw_lim = min(last - radius1, last - radius2)
+        # print (df['4. close'][-1], df['ATR'][-1], up_lim, lw_lim)
+        df['pivot_caught'] = np.where( (lw_lim < df['pivot']) & (df['pivot'] < up_lim), 1, 0)
+        return df['pivot_caught'].sum()
+
+    def hit_horizontal_support(self, days, length, num):
+        """Close touch down and slice by EMA
+
+        Args:
+            days (int): recent period in which pivots are considered
+            length (int): length of period (in days) to calculate pivots and to test if 3EMA is above last close
+            num (int): minimal number of pivots
+
+        Returns:
+              boolean
+        """
+        # print ('-', self.horizon_slice(days))
+        self.find_pivot(length)
+        if self.horizon_slice(days) < num:
+            return False
+        horizontal_support = self.df['4. close'][-1]
+        stay_above = self.two_dragon_internal(3, horizontal_support, length, self.df, 0.9)
+        # print('+',stay_above)
+        if stay_above == 1:
+            return True
+        else:
+            return False
 
     def get_latest_performance(self, period):
         """ 
@@ -245,23 +285,27 @@ class TimeSeriesPlus:
         if ma1_key in df.columns and ma2_key in df.columns:
             df['ma01'] = df[ma1_key]
             df['ma02'] = df[ma2_key]
+            print ('xx')
+        elif ma1_key not in df.columns:
+            df['ma01'] = MAdays1
+            df['ma02'] = df[ma2_key]
+            print('1x', MAdays1)
+        elif ma2_key not in df.columns:
+            df['ma01'] = df[ma1_key]
+            df['ma02'] = MAdays2
+            print('x2', MAdays2)
         else:
-            df['ma01'] = df["4. close"].ewm(span=MAdays1, adjust=False).mean()
-            df['ma02'] = df["4. close"].ewm(span=MAdays2, adjust=False).mean()
+            return status
 
         sgnl = df["ma01"] - df["ma02"]
         df["signal"] = np.where(sgnl > 0, 1, 0)
         ratio = df.tail(TRNDdays)['signal'].sum() / TRNDdays
 
-        # print ('-->', ratio)
-
         if ratio >= cutoff:
             status = 1
         elif ratio < (1 - cutoff):
             status = -1
-
         # print (ratio, status)
-
         return status
 
     def two_dragon(self, *args):
@@ -273,6 +317,8 @@ class TimeSeriesPlus:
         return status
 
     def hit_ema_support(self, ema, days):
+        """Close touch down and slice by EMA
+        """
         if not self.ema_slice(ema):
             return False
         stay_above = self.two_dragon_internal(3, ema, days, self.df, 0.95)
@@ -574,6 +620,7 @@ class TimeSeriesPlus:
         close = df['4. close']
 
         def do_atr(df, high, low, close):
+            df = df.copy(deep=True)
             df['atr1'] = abs(high - low)
             df['atr2'] = abs(high - close.shift())
             df['atr3'] = abs(low - close.shift())
