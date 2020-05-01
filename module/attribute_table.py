@@ -5,9 +5,11 @@ AttributeTable class and methods
 import os
 import sys
 import math
+import numpy as np
 import pandas as pd
 import module.utility as utility
 from module.time_series_plus import TimeSeriesPlus
+
 
 
 class AttributeTable:
@@ -151,7 +153,14 @@ class AttributeTable:
                     e = sys.exc_info()[0]
                     print("x-> Error while reading historical data; ", e)
                 price = price.sort_index(axis = 0)
-                sts = TimeSeriesPlus(price).sma_multiple()
+                price.replace('', np.nan, inplace=True)
+                # if price.shape[0] < 200:      xxx
+                #     continue
+                price = price.dropna(axis=0)
+
+                # sts = TimeSeriesPlus(price).sma_multiple()
+                print ('x', symbol)
+                sts = TimeSeriesPlus(price)
                 dict_sts[symbol] = sts
             else:
                 self._attribute_table = self._attribute_table.drop(symbol)
@@ -415,6 +424,23 @@ class AttributeTable:
                 print(
                     "# {:>5} symbols meet filter_upward criteria {}".format(len(self._attribute_table), filter_upward))
 
+            if self.kwargs["filter_horizon_slice"]:
+                try:
+                    args = self.kwargs["filter_horizon_slice"].split(',')
+                    days, num = list(map(int, args))
+                except ValueError:
+                    print(f" argument {args} is invalid")
+                    exit(1)
+
+                self._attribute_table["Sort"] = False
+                for symbol in self._attribute_table.index:
+                    pivot_caught = self.sts_daily[symbol].horizon_slice(days)
+                    if pivot_caught >= num:
+                        # print (symbol, pivot_caught, num)
+                        self._attribute_table.loc[symbol, "Sort"] = True
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
+                print("# {:>5} symbols meet support slice criteria: {}".format(len(self._attribute_table), args))
+
             if self.kwargs["filter_ema_slice"]:
                 # TBD: add look-back non-converge period
                 filter_ema_slice = int(self.kwargs["filter_ema_slice"])
@@ -425,3 +451,18 @@ class AttributeTable:
 
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
                 print("# {:>5} symbols meet EMA slice criteria: {}".format(len(self._attribute_table), filter_ema_slice))
+
+            if self.kwargs["filter_hit_horizontal_support"]:
+                try:
+                    args = self.kwargs["filter_hit_horizontal_support"].split(',')
+                    days, length, num = list(map(int, args))
+                except ValueError:
+                    print(f" argument {args} is invalid")
+                    exit(1)
+
+                self._attribute_table["Sort"] = False
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].hit_horizontal_support(days, length, num)
+
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
+                print("# {:>5} symbols meet support slice criteria: {}".format(len(self._attribute_table), args))
