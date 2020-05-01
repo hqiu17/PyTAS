@@ -345,12 +345,16 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
         facecolor = 'yellow'
     elif re.search(r'\s[\d\.]+R', sticker):
         facecolor = 'green'
-
+    # coloring based on RSI
+    if 'RSI-7' in sticker or 'RSI-8' in sticker or 'RSI-9' in sticker:
+        facecolor = 'red'
+    # coloring based on zacks ranking
     if 'A/' in sticker or 'B/' in sticker or 'C/' in sticker or 'zr1' in sticker or 'zr2' in sticker:
         color = "blue"
         if 'A/' in sticker or 'B/' in sticker or 'zr1' in sticker:
             color = "red"
-        if facecolor == 'white': facecolor = 'yellow'
+        if facecolor == 'white':
+            facecolor = 'yellow'
         plt.gca().text(
             fig_xmin + fig_xmax * 0.005, fig_ymax,
             sticker,
