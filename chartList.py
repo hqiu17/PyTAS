@@ -47,6 +47,7 @@ def chart_securities(file, **kwargs):
     dayspan = kwargs["days"]
     gradient = kwargs["gradient"]
     weekly = kwargs['weekly']
+    backtest_date = kwargs['backtest_date']
 
     # Basic processing the security data based on descriptive attributes
 
@@ -60,10 +61,12 @@ def chart_securities(file, **kwargs):
     if file_name:
         print(file_name)
         file_name = utility.get_output_filename(file_name, **kwargs)
+        if backtest_date:
+            file_name = backtest_date + '.' + file_name
 
     # set the number of rows and columns within each output chart based on
     # the total number of input securities and charting related argument (-p)
-    default_row_num = 6 if "," in dayspan else 7
+    default_row_num = 4 if "," in dayspan else 5
     panel_row = candlestick.set_row_num(num_stickers)
     panel_row = default_row_num if panel_row > default_row_num else panel_row
     panel_col=panel_row

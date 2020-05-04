@@ -77,13 +77,11 @@ class TimeSeriesPlus:
         if df.shape[0] < 100:
             return 0
         df = df.tail(days)
-        # print(df.columns)
-        # print(df.head(5))
 
         # define horizontal zone to capture pivots
         last = df['4. close'][-1]
         radius1 = df['ATR'][-1]/2   # by half of ATR
-        radius2 = last/50          # by 2% last colse
+        radius2 = last/100          # by 2% last colse
         up_lim = max(last + radius1, last + radius2)
         lw_lim = min(last - radius1, last - radius2)
         # print (df['4. close'][-1], df['ATR'][-1], up_lim, lw_lim)

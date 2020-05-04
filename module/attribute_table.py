@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import module.utility as utility
 from module.time_series_plus import TimeSeriesPlus
+from module.candlestick import date_to_index
 
 
 
@@ -156,7 +157,17 @@ class AttributeTable:
                 price.replace('', np.nan, inplace=True)
                 # if price.shape[0] < 200:      xxx
                 #     continue
-                price = price.dropna(axis=0)
+
+
+                if self.kwargs['backtest_date']:
+                    backtest_date = self.kwargs['backtest_date']
+                    if backtest_date in price.index:
+                        loci = price.index.get_loc(self.kwargs['backtest_date'])
+                        price = price[0:loci+1]
+                        price = price.dropna(axis=0)
+                    else:
+                        self._attribute_table = self._attribute_table.drop(symbol, axis=0)
+                        continue
 
                 # sts = TimeSeriesPlus(price).sma_multiple()
                 print ('x', symbol)
@@ -387,6 +398,9 @@ class AttributeTable:
                 for symbol, row in self._attribute_table.iterrows():
                     self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_BBdistance(days)
                     df = self.sts_daily[symbol].df
+                    if df.shape[0] < 100:
+                        self._attribute_table.loc[symbol, "Sort"] = 1
+                        continue
 
                     if test_bband_uptrend:
                         BB20d_uptrend = True

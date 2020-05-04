@@ -293,9 +293,10 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
                 df['BB20d_SMA10'].plot()
 
     # plot pivot
-    pivot = df.copy(deep=True)
-    pivot = pivot[pivot['pivot']>0]
-    plt.plot(pivot['xcord'],pivot['pivot'], linestyle='-', marker='o', markersize=6, color='#1f77b4', linewidth=2)
+    if 'pivot' in df.columns:
+        pivot = df.copy(deep=True)
+        pivot = pivot[pivot['pivot']>0]
+        plt.plot(pivot['xcord'],pivot['pivot'], linestyle='-', marker='o', markersize=6, color='#1f77b4', linewidth=2)
 
     # plot candlesticks (core data) for the most recent period
     recent_days = 60

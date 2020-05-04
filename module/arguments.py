@@ -49,8 +49,8 @@ def get_parser():
                         help=": filter for stochastic K>D signal. example 14,3,20,all or 14,3,20,crs")
     parser.add_argument("-mslc", "--filter_ema_slice", type=str, default="",
                         help=": last price range is sliced (or intersected) by key EMA (20, 50, 100, 200)")
-    # parser.add_argument("-pslc", "--filter_horizon_slice", type=str, default="",
-    #                     help=": last price hitting support defined by 2 pivots in the past 200 days, e.g., 200,2")
+    parser.add_argument("-pslc", "--filter_horizon_slice", type=str, default="",
+                        help=": last price hitting support defined by 2 pivots in the past 200 days, e.g., 200,2")
     parser.add_argument("-hspt", "--filter_hit_horizontal_support", type=str, default="",
                         help=": last price touch down support defined by 2 pivots in the past 200 days, e.g., 200,2")
     parser.add_argument("-pema", "--filter_parallel_ema", type=str, default="",
@@ -87,6 +87,12 @@ def get_parser():
     parser.add_argument("-smpl", "--sample",
                         type=str, default="",
                         help=": strategical sampling of historical data point: stks_bb, below_bb, plunge_macd")
+
+    parser.add_argument("-bdat", "--backtest_date",
+                        type=str, default="",
+                        help=": xxx")
+
+
 
     # SKIP CHARTING
     parser.add_argument("-f", "--filterOnly", default=False,
