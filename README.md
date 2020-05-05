@@ -98,9 +98,9 @@ chartList.py --dir download sample.txt --sort_change_to_ref 2018-09-10,2018-09-1
 ### 4. Filtering equities 
 
 #### 4.1 --filter_parallel_ema
-Filter for equities with EMA lines (20EMA and 50EMA) being parallel in defined recent period (30 days). This pattern is supported by at least a proportion (0.95) of the days in the sampled period.
+Filter for equities with 20EMA being above 50EMA in a defined recent period (30 days). This pattern is supported by at least a proportion (0.95) of the days in the recent period.
 ```
-chartList.py --dir download sample.txt --filter_parallel_ema 20,50,30,0.95 --days 80
+chartList.py --dir download sample.txt --filter_parallel_ema 20,50,30,0.95
 ```
 
 #### 4.2 --filter_upward
@@ -143,3 +143,10 @@ chartList.py --dir download sample.txt --filter_bbdistance 0.05 --day 60
 Filter for equities with normalized distance (<0.05) between closing price and Bollinger lower boundary within the last 3 days. 
 ```
 chartList.py --dir download sample.txt --filter_bbdistance 0.05,3 --days 60
+```
+
+#### 4.7 --filter_rsi
+Filter for equities with RSI values falling into a defined range (e.g., between 0 and 40).
+```
+chartList.py --dir download sample.txt --filter_bbdistance 0.05,3 --filter_rsi 0,40
+```
