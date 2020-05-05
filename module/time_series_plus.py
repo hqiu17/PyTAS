@@ -73,6 +73,15 @@ class TimeSeriesPlus:
         return self
 
     def horizon_slice(self, days):
+        """Number of pivots in the same zone defined last close
+
+        Args:
+            days (int): recent period in which pivots are considered
+
+        Return:
+            (int): number of pivots in the same zone defined by last close
+        """
+
         df = self.df.copy(deep=True)
         if df.shape[0] < 100:
             return 0
@@ -81,9 +90,11 @@ class TimeSeriesPlus:
         # define horizontal zone to capture pivots
         last = df['4. close'][-1]
         radius1 = df['ATR'][-1]/2   # by half of ATR
-        radius2 = last/100          # by 2% last colse
+        radius2 = last/100          # by 1% last close
         up_lim = max(last + radius1, last + radius2)
         lw_lim = min(last - radius1, last - radius2)
+
+        self.df['last_trading_range'] = "{},{}".format(lw_lim, up_lim)
         # print (df['4. close'][-1], df['ATR'][-1], up_lim, lw_lim)
         df['pivot_caught'] = np.where( (lw_lim < df['pivot']) & (df['pivot'] < up_lim), 1, 0)
         return df['pivot_caught'].sum()
@@ -99,13 +110,15 @@ class TimeSeriesPlus:
         Returns:
               boolean
         """
-        # print ('-', self.horizon_slice(days))
+        # test pivot number
         self.find_pivot(length)
         if self.horizon_slice(days) < num:
             return False
+
+        # test if prices were above support
         horizontal_support = self.df['4. close'][-1]
         stay_above = self.two_dragon_internal(3, horizontal_support, length, self.df, 0.9)
-        # print('+',stay_above)
+
         if stay_above == 1:
             return True
         else:
