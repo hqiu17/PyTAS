@@ -284,23 +284,17 @@ class TimeSeriesPlus:
         ma1_key = str(MAdays1) + "MA"
         ma2_key = str(MAdays2) + "MA"
 
-        # print (MAdays1, MAdays2, TRNDdays, cutoff)
-        # pd.set_option('display.max_rows', None)
-        # print( df[['50MA','200MA']].tail(TRNDdays) )
-
         # if dataframe length is not sufficient to calculate ema, return 0
         if (TRNDdays + MAdays1) > df.shape[0] or (TRNDdays + MAdays2) > df.shape[0]:
-            print(f"the timeseries data length {df.shape[0]} is not sufficient to calculate ema")
+            # print(f"dataframe length {df.shape[0]} is not sufficient to calculate and do test using ema")
             return status
 
         if ma1_key in df.columns and ma2_key in df.columns:
             df['ma01'] = df[ma1_key]
             df['ma02'] = df[ma2_key]
-            print ('xx')
         elif ma1_key not in df.columns:
             df['ma01'] = MAdays1
             df['ma02'] = df[ma2_key]
-            print('1x', MAdays1)
         elif ma2_key not in df.columns:
             df['ma01'] = df[ma1_key]
             df['ma02'] = MAdays2
@@ -315,7 +309,6 @@ class TimeSeriesPlus:
             status = 1
         elif ratio < (1 - cutoff):
             status = -1
-        # print (ratio, status)
         return status
 
     def two_dragon(self, *args):

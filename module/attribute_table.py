@@ -12,7 +12,6 @@ from module.time_series_plus import TimeSeriesPlus
 from module.candlestick import date_to_index
 
 
-
 class AttributeTable:
     """A class representing a list of securities and their attributes
     
@@ -136,7 +135,7 @@ class AttributeTable:
             df.rename(columns={'Volume':'5. volume'}, inplace=True)
         return df
 
-    def read_timeseries(self):
+    def read_timeseries(self, minimal_rows=60):
         """Read price data for each security and load into memory
            Securities without price data are dropped.
         """
@@ -154,10 +153,10 @@ class AttributeTable:
                     e = sys.exc_info()[0]
                     print("x-> Error while reading historical data; ", e)
 
-                # remove rows with NA and remove df with <200 rows
+                # remove rows with NA and remove df with <60 rows
                 price.replace('', np.nan, inplace=True)
                 price = price.dropna(axis='index')
-                if price.shape[0] < 200:
+                if price.shape[0] < minimal_rows:
                     self._attribute_table = self._attribute_table.drop(symbol, axis=0)
                     continue
 
@@ -173,8 +172,6 @@ class AttributeTable:
                         self._attribute_table = self._attribute_table.drop(symbol, axis=0)
                         continue
 
-                # sts = TimeSeriesPlus(price).sma_multiple()
-                print ('x', symbol)
                 sts = TimeSeriesPlus(price)
                 dict_sts[symbol] = sts
             else:
@@ -277,7 +274,7 @@ class AttributeTable:
                 for symbol in self._attribute_table.index:
                     self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].macd_cross_up(sspan, lspan, days)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
-                print(len(self._attribute_table), " symbols meet user criterion")
+                print("# {:>5} symbols meet macd criteria".format(len(self._attribute_table)))
 
             if self.kwargs["filter_rsi"]:
                 args = self.kwargs["filter_rsi"].split(',')
@@ -488,15 +485,14 @@ class AttributeTable:
 
             if self.kwargs["filter_hit_horizontal_support"]:
                 try:
-                    args = self.kwargs["filter_hit_horizontal_support"].split(',')
-                    days, length, num = list(map(int, args))
+                    args = self.kwargs["filter_hit_horizontal_support"]
+                    days, length, num = list(map(int, args.split(',')))
                 except ValueError:
                     print(f" argument {args} is invalid")
                     exit(1)
 
                 self._attribute_table["Sort"] = False
                 for symbol in self._attribute_table.index:
-                    print('x3 ', symbol)
                     self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].hit_horizontal_support(days, length, num)
 
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
