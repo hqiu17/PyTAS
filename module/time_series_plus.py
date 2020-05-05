@@ -276,7 +276,7 @@ class TimeSeriesPlus:
         # print( df[['50MA','200MA']].tail(TRNDdays) )
 
         # if dataframe length is not sufficient to calculate ema, return 0
-        if ((TRNDdays + MAdays1) > df.shape[0] or (TRNDdays + MAdays2) > df.shape[0]):
+        if (TRNDdays + MAdays1) > df.shape[0] or (TRNDdays + MAdays2) > df.shape[0]:
             print(f"the timeseries data length {df.shape[0]} is not sufficient to calculate ema")
             return status
 
@@ -291,7 +291,6 @@ class TimeSeriesPlus:
         elif ma2_key not in df.columns:
             df['ma01'] = df[ma1_key]
             df['ma02'] = MAdays2
-            print('x2', MAdays2)
         else:
             return status
 

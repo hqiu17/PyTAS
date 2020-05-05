@@ -57,7 +57,8 @@ def get_parser():
                         help=": filter for 2 ema that are largely parallel in defined period, e.g., 20,50,60 or 20,50,60,0.8")
     parser.add_argument("-espt", "--filter_hit_ema_support", type=str, default="",
                         help=": filter for last close hitting ema from above, e.g., 100,10")
-
+    parser.add_argument("-frsi", "--filter_rsi", type=str, default="",
+                        help=": filter for rsi within defined rang, e.g., 0,30")
 
     # SORT
     parser.add_argument("-szk","--sort_zacks", type=str, default="",

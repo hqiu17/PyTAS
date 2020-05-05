@@ -186,6 +186,10 @@ def get_output_filename(infile, **kwargs):
         file_name = file_name + ".fSptSli" + kwargs["filter_hit_horizontal_support"].replace(',', '-')
     if kwargs["filter_horizon_slice"]:
         file_name = file_name + ".fHorSli" + kwargs["filter_horizon_slice"].replace(',', '-')
+    if kwargs["filter_rsi"]:
+        file_name = file_name + ".frsi" + kwargs["filter_rsi"].replace(',', '-')
+
+
 
     if kwargs["weekly"]:
         file_name = file_name + ".week"

@@ -153,18 +153,22 @@ class AttributeTable:
                 except:
                     e = sys.exc_info()[0]
                     print("x-> Error while reading historical data; ", e)
-                price = price.sort_index(axis = 0)
+
+                # remove rows with NA and remove df with <200 rows
                 price.replace('', np.nan, inplace=True)
-                # if price.shape[0] < 200:      xxx
-                #     continue
+                price = price.dropna(axis='index')
+                if price.shape[0] < 200:
+                    self._attribute_table = self._attribute_table.drop(symbol, axis=0)
+                    continue
 
+                price = price.sort_index(axis = 0)
 
+                # remove df without data in backtest date
                 if self.kwargs['backtest_date']:
                     backtest_date = self.kwargs['backtest_date']
                     if backtest_date in price.index:
                         loci = price.index.get_loc(self.kwargs['backtest_date'])
                         price = price[0:loci+1]
-                        price = price.dropna(axis=0)
                     else:
                         self._attribute_table = self._attribute_table.drop(symbol, axis=0)
                         continue
@@ -274,6 +278,22 @@ class AttributeTable:
                     self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].macd_cross_up(sspan, lspan, days)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
                 print(len(self._attribute_table), " symbols meet user criterion")
+
+            if self.kwargs["filter_rsi"]:
+                args = self.kwargs["filter_rsi"].split(',')
+                try:
+                    (low, high) = list(map(int, args))
+                except ValueError:
+                    print ("Invalid rsi argument: " + args)
+
+                self._attribute_table["Sort"] = 0
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_rsi()
+                #     print ( self.sts_daily[symbol].get_rsi() )
+                # print ( self._attribute_table["Sort"] )
+                self._attribute_table = self._attribute_table.loc[ low < self._attribute_table["Sort"] ]
+                self._attribute_table = self._attribute_table.loc[ self._attribute_table["Sort"] < high]
+                print("# {:>5} symbols meet rsi criteria".format(len(self._attribute_table)))
 
             if self.kwargs["sort_ema_distance"] > 0:
                 # sort symbols by last close-to-SMA distance
@@ -476,6 +496,7 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = False
                 for symbol in self._attribute_table.index:
+                    print('x3 ', symbol)
                     self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].hit_horizontal_support(days, length, num)
 
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
