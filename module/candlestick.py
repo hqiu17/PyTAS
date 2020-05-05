@@ -222,6 +222,16 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
     if fold_change > foldchange_cutoff:
         redraw = 1
 
+    # draw last day's trading zone (to resonate with pivots)
+    if "last_trading_range" in df.columns:
+        try:
+            (lw_lim, up_lim) = list(map(float, df.iloc[-1]["last_trading_range"].split(',')))
+        except ValueError:
+            print ("x-> problem parsing last_trading_range")
+            print (ValueError)
+
+        plt.axhspan(lw_lim, up_lim, color="gray", alpha=0.3)
+
     # draw horizontal lines for last day's low and close
     color_closing = "black"
     if df.iloc[-1]["4. close"] > df.iloc[-1]["1. open"]:
