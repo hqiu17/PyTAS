@@ -27,7 +27,7 @@ docker run -it --name mycontainer -v ~/Desktop/my_test:/mnt img_pytas
 ```
 Copy sample data to /mnt and change working directory to /mnt:
 ```
-copy -r download sample.txt /mnt
+cp -r download sample.txt /mnt
 cd /mnt
 ```
 Now you are ready to analyze sample data within docker container following instructions in Sections 2, 3 and 4. The sample data and analysis output in /mnt will show up in your local directory ~/Desktop/my_test.
