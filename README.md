@@ -2,7 +2,7 @@
 PyTAS (Python technical analysis strategies) includes python scripts for downloading equity historical data, and for sorting, scanning and charting equities using a variety of technical indicators.
 
 
-## Dependency
+## Dependencies
 Python 3 (https://www.python.org/)
 
 alpha_vantage (https://github.com/RomelTorres/alpha_vantage)
@@ -12,6 +12,25 @@ Numpy (https://numpy.org/)
 Pandas (https://pandas.pydata.org/)
 
 Matplotlib (https://matplotlib.org/)
+
+
+## Using docker
+To avoid installing the dependent libararies, one option is to run pytas scripts in docker container (for more details, visit https://www.docker.com/). Assuming your computer has docker installed, download or clone PyTAS package to your computer to direcotry e.g., ~/Desktop/pytas, change working direcotry to it, and build a docker images (img_pytas):
+```
+cd ~/Desktop/pytas
+docker build -t img_pytas .
+```
+Create a local directory (e.g., ~/Desktop/my_test), and mount it while running a docker container:
+```
+mkdir ~/Desktop/my_test
+docker run -it --name mycontainer -v ~/Desktop/my_test:/mnt img_pytas
+```
+Copy sample data to /mnt and change working directory to /mnt:
+```
+copy -r download sample.txt /mnt
+cd /mnt
+```
+Now you are ready to analyze sample data within docker container following instructions in Sections 2, 3 and 4. The sample data and analysis output in /mnt will show up in your local directory ~/Desktop/my_test.
 
 
 ## Usage demonstration with example data
