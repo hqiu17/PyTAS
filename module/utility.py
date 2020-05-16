@@ -188,6 +188,8 @@ def get_output_filename(infile, **kwargs):
         file_name = file_name + ".fHorSli" + kwargs["filter_horizon_slice"].replace(',', '-')
     if kwargs["filter_rsi"]:
         file_name = file_name + ".frsi" + kwargs["filter_rsi"].replace(',', '-')
+    if kwargs["filter_surging_volume"]:
+        file_name = file_name + ".fVol" + kwargs["filter_surging_volume"].replace(',', '-')
 
 
 
