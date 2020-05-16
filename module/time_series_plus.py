@@ -12,15 +12,16 @@ class TimeSeriesPlus:
     def sma_multiple(self):
         ma_days = [3, 20, 50, 100, 150, 200]
         df = self.df
-        for days in ma_days:
-            # df[str(days)+'MA'] = df["4. close"].rolling(days).mean()
-            df[str(days) + 'MA'] = df["4. close"].ewm(span=days, adjust=False).mean()
-        # simple moving average for bollinger band
-        df["20SMA"] = df["4. close"].rolling(20).mean()
-        df['STD20'] = df["4. close"].rolling(20).std()
-        df['BB20u'] = df['20SMA'] + df['STD20'] * 2
-        df['BB20d'] = df['20SMA'] - df['STD20'] * 2
-        df['BB20d_SMA10'] = df['BB20d'].rolling(10).mean()
+        if '4. close' in df.columns:
+            for days in ma_days:
+                # df[str(days)+'MA'] = df["4. close"].rolling(days).mean()
+                df[str(days) + 'MA'] = df["4. close"].ewm(span=days, adjust=False).mean()
+            # simple moving average for bollinger band
+            df["20SMA"] = df["4. close"].rolling(20).mean()
+            df['STD20'] = df["4. close"].rolling(20).std()
+            df['BB20u'] = df['20SMA'] + df['STD20'] * 2
+            df['BB20d'] = df['20SMA'] - df['STD20'] * 2
+            df['BB20d_SMA10'] = df['BB20d'].rolling(10).mean()
         return self
 
     def find_pivot_simple(self, length):
@@ -706,6 +707,31 @@ class TimeSeriesPlus:
     def get_rsi(self, n=14):
         self.do_rsi_wilder(n)
         return self.df['RSI'][-1]
+
+    def get_relative_volume(self, n=10):
+        """Get ratio between last volume vs. defined volume SMA
+
+        Args:
+            n (int): length to define SMA
+        Returns:
+            ratio (float): last volume / volume-SMA
+        """
+        # df = self.df.copy(deep=True)
+        ratio = 0
+        df = self.df
+        df['Volume_MA'] = df['5. volume'].rolling(n).mean()
+        last = df['5. volume'][-1]
+        average = df['Volume_MA'][-1]
+        # print ('-->> ', last, average)
+        if last > 0:
+            ratio = last/average
+        return ratio
+
+    def get_price_change_to_close(self):
+        df = self.df
+        df['change_to_close'] = df['4. close'].diff()/df['4. close'].shift()
+        # print (df['change_to_close'][-1], df['4. close'][-1], df['4. close'].diff()[-1])
+        return df['change_to_close'][-1]/df['4. close'][-1]
 
     def cross_up(self, indicator1, indicator2, days):
         # print ('*', days)
