@@ -49,7 +49,7 @@ class AttributeTable:
         return self._attribute_table
 
     def basic_processing(self):
-        """Basic data processing (update self.description)
+        """Basic attribute data processing (update self.description)
         
             Remove oil and gas related securities (high volatility);
             Add buy- and sold-dates;
@@ -122,17 +122,17 @@ class AttributeTable:
 
     def df_rename_columns(self, df):
         if 'Date' in df.columns:
-            df.rename(columns={'Date':'date'}, inplace=True)
+            df.rename(columns={'Date': 'date'}, inplace=True)
         if 'Open' in df.columns:
-            df.rename(columns={'Open':'1. open'}, inplace=True)
+            df.rename(columns={'Open': '1. open'}, inplace=True)
         if 'High' in df.columns:
-            df.rename(columns={'High':'2. high'}, inplace=True)
+            df.rename(columns={'High': '2. high'}, inplace=True)
         if 'Low' in df.columns:
-            df.rename(columns={'Low':'3. low'}, inplace=True)
+            df.rename(columns={'Low': '3. low'}, inplace=True)
         if 'Close' in df.columns:
-            df.rename(columns={'Close':'4. close'}, inplace=True)
+            df.rename(columns={'Close': '4. close'}, inplace=True)
         if 'Volume' in df.columns:
-            df.rename(columns={'Volume':'5. volume'}, inplace=True)
+            df.rename(columns={'Volume': '5. volume'}, inplace=True)
         return df
 
     def read_timeseries(self, minimal_rows=60):
@@ -153,6 +153,10 @@ class AttributeTable:
                     e = sys.exc_info()[0]
                     print("x-> Error while reading historical data; ", e)
 
+                if self.kwargs["weekly"]:
+                    price = TimeSeriesPlus(price).get_weekly()
+                    price = TimeSeriesPlus(price).sma_multiple().df
+
                 # remove rows with NA and remove df with <60 rows
                 price.replace('', np.nan, inplace=True)
                 price = price.dropna(axis='index')
@@ -160,14 +164,14 @@ class AttributeTable:
                     self._attribute_table = self._attribute_table.drop(symbol, axis=0)
                     continue
 
-                price = price.sort_index(axis = 0)
+                price = price.sort_index(axis=0)
 
                 # remove df without data in backtest date
                 if self.kwargs['backtest_date']:
                     backtest_date = self.kwargs['backtest_date']
                     if backtest_date in price.index:
                         loci = price.index.get_loc(self.kwargs['backtest_date'])
-                        price = price[0:loci+1]
+                        price = price[0:loci + 1]
                     else:
                         self._attribute_table = self._attribute_table.drop(symbol, axis=0)
                         continue
@@ -182,6 +186,7 @@ class AttributeTable:
         """Filter and sort securities based on keyword arguments
         """
 
+        # sort securities by attributes
         if self.kwargs["sort_brokerrecomm"] and "# Rating Strong Buy or Buy" in self._attribute_table:
             self._attribute_table = self._attribute_table.sort_values(["# Rating Strong Buy or Buy"],
                                                                       ascending=False)
@@ -277,31 +282,36 @@ class AttributeTable:
                 print("# {:>5} symbols meet macd criteria".format(len(self._attribute_table)))
 
             if self.kwargs["filter_rsi"]:
+                # filter for rsi within define range, e.g., 20,50
                 args = self.kwargs["filter_rsi"].split(',')
                 try:
                     (low, high) = list(map(int, args))
                 except ValueError:
-                    print ("Invalid rsi argument: " + args)
+                    print("Invalid rsi argument: " + args)
 
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
                     self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_rsi()
-                #     print ( self.sts_daily[symbol].get_rsi() )
-                # print ( self._attribute_table["Sort"] )
-                self._attribute_table = self._attribute_table.loc[ low < self._attribute_table["Sort"] ]
-                self._attribute_table = self._attribute_table.loc[ self._attribute_table["Sort"] < high]
+                self._attribute_table = self._attribute_table.loc[low < self._attribute_table["Sort"]]
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] < high]
                 print("# {:>5} symbols meet rsi criteria".format(len(self._attribute_table)))
 
-            if self.kwargs["sort_ema_distance"] > 0:
-                # sort symbols by last close-to-SMA distance
-
-                sort_ema_distance = self.kwargs["sort_ema_distance"]
-
-                self._attribute_table["Sort"] = 0
+            if self.kwargs["filter_surging_volume"]:
+                # filter for combination of volume increase with price going down
+                args = self.kwargs["filter_surging_volume"].split(',')
+                length = int(args[0])
+                ratio = float(args[1])
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_SMAdistance(
-                        sort_ema_distance)
-                self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
+                    status = False
+                    if self.sts_daily[symbol].get_price_change_to_close() >= 0:
+                        if self.sts_daily[symbol].get_relative_volume(length) >= ratio:
+                            print(symbol, " price ", self.sts_daily[symbol].get_price_change_to_close(), " ",
+                                  self.sts_daily[symbol].get_relative_volume(length))
+                            # print ("          ", self.sts_daily[symbol].get_relative_volume(length))
+                            status = True
+                    self._attribute_table.loc[symbol, "Sort"] = status
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
+                print("# {:>5} symbols meet filter_surging_volume".format(len(self._attribute_table)))
 
             # method filter based on stochastic signal
             if self.kwargs["filter_stochastic_sgl"]:
@@ -369,36 +379,6 @@ class AttributeTable:
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
                 print("# {:>5} symbols meet filter_hit_ema_support {}".format(len(self._attribute_table), args))
 
-            if self.kwargs["sort_change_to_ref"]:
-                # Sort securities by price change in a defined date or 
-                #   period relative to a reference date
-                # 
-                # example: input varialbe "2020-20-01,4"
-                #   set 2020-20-01 as reference date, calculate the average price of the
-                #   following 4 day, and report the change that led to this average price and from
-                #   the reference date
-                # 
-                # Outcome: update instance variable 'description'
-
-                arg = self.kwargs["sort_change_to_ref"]
-                aa = arg.split(',')
-                # reference_date = aa[0]
-                # days = aa[1]
-                if len(aa) != 2:
-                    raise ValueError("Argument \'{}\' does not contains exactly one comma".format(arg))
-                else:
-                    reference, subject = arg.split(',')
-
-                self._attribute_table["Sort"] = 0
-                for symbol, row in self._attribute_table.iterrows():
-                    self._attribute_table.loc[symbol, "Sort"] = \
-                        self.sts_daily[symbol].get_referenced_change(reference, subject)
-
-                self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
-                self._attribute_table["Date Added"] = reference
-                if subject.count('-') == 2:
-                    self._attribute_table["Date Sold"] = subject
-
             # method filter and sort by last close to bollinger band bottom border distance
             if self.kwargs["filter_bbdistance"]:
                 filter_bbdistance = self.kwargs["filter_bbdistance"]
@@ -408,7 +388,7 @@ class AttributeTable:
                 test_bband_uptrend = False
                 if len(list_arg) >= 2:
                     days = int(list_arg[1])
-                if len(list_arg) == 3 and list_arg[2] =='up':
+                if len(list_arg) == 3 and list_arg[2] == 'up':
                     test_bband_uptrend = True
 
                 self._attribute_table["Sort"] = 0
@@ -481,7 +461,8 @@ class AttributeTable:
                     self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].ema_slice(filter_ema_slice)
 
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
-                print("# {:>5} symbols meet EMA slice criteria: {}".format(len(self._attribute_table), filter_ema_slice))
+                print(
+                    "# {:>5} symbols meet EMA slice criteria: {}".format(len(self._attribute_table), filter_ema_slice))
 
             if self.kwargs["filter_hit_horizontal_support"]:
                 try:
@@ -493,7 +474,50 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = False
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].hit_horizontal_support(days, length, num)
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].hit_horizontal_support(days,
+                                                                                                              length,
+                                                                                                              num)
 
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
                 print("# {:>5} symbols meet support slice criteria: {}".format(len(self._attribute_table), args))
+
+            if self.kwargs["sort_ema_distance"] > 0:
+                # sort symbols by last close-to-SMA distance
+
+                sort_ema_distance = self.kwargs["sort_ema_distance"]
+
+                self._attribute_table["Sort"] = 0
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_SMAdistance(
+                        sort_ema_distance)
+                self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
+
+            if self.kwargs["sort_change_to_ref"]:
+                # Sort securities by price change in a defined date or
+                #   period relative to a reference date
+                #
+                # example: input varialbe "2020-20-01,4"
+                #   set 2020-20-01 as reference date, calculate the average price of the
+                #   following 4 day, and report the change that led to this average price and from
+                #   the reference date
+                #
+                # Outcome: update instance variable 'description'
+
+                arg = self.kwargs["sort_change_to_ref"]
+                aa = arg.split(',')
+                # reference_date = aa[0]
+                # days = aa[1]
+                if len(aa) != 2:
+                    raise ValueError("Argument \'{}\' does not contains exactly one comma".format(arg))
+                else:
+                    reference, subject = arg.split(',')
+
+                self._attribute_table["Sort"] = 0
+                for symbol, row in self._attribute_table.iterrows():
+                    self._attribute_table.loc[symbol, "Sort"] = \
+                        self.sts_daily[symbol].get_referenced_change(reference, subject)
+
+                self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
+                self._attribute_table["Date Added"] = reference
+                if subject.count('-') == 2:
+                    self._attribute_table["Date Sold"] = subject
