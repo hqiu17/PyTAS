@@ -59,6 +59,9 @@ def get_parser():
                         help=": filter for last close hitting ema from above, e.g., 100,10")
     parser.add_argument("-frsi", "--filter_rsi", type=str, default="",
                         help=": filter for rsi within defined rang, e.g., 0,30")
+    parser.add_argument("-fvol", "--filter_surging_volume", type=str, default="",
+                        help=": filter for high volume relative to its SMA, e.g., 10,2.5")
+
 
     # SORT
     parser.add_argument("-szk","--sort_zacks", type=str, default="",
