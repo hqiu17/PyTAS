@@ -29,7 +29,13 @@ def get_parser():
     parser.add_argument("-wc", "--weekly_chart",
                         default=False,
                         help=": chart using weekly data",
-                        action='store_true')   
+                        action='store_true')
+    parser.add_argument("-pv", "--plot_volumne",
+                        default=False,
+                        help=": plot volumne data",
+                        action='store_true')
+            
+                        
     # FILTERING
     parser.add_argument("-cvg", "--vgm" , default=False, action='store_true',
                         help=": set filter on for VGM")

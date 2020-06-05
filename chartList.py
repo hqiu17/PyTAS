@@ -126,6 +126,9 @@ def chart_securities(file, **kwargs):
                     daily_price = daily_price.join(ref)
             daily_price=daily_price.tail(500)
 
+            if kwargs["plot_volumne"]:
+                daily_price = TimeSeriesPlus(daily_price).get_volume().df
+
             mysecurity = candlestick.Security(daily_price)
 
             if antt:

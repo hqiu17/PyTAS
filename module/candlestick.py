@@ -284,16 +284,25 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
 
     # plot SMA
     df["4. close"].plot(color='black')
+
+    alpha = 0.8
+    if 'vol' in df.columns:
+        ratio = (fig_ymax - fig_ymin)/(df['vol'].max()+1)
+        df['vol_adjusted'] = df['vol'] * ratio
+        
+        # make trend lines and bollinger band lighter
+        alpha = alpha/3
+        
     if sample_size > 50:
         for days in moving_average_parameters[1:]:
             MA = str(days) + "MA"
-            if MA in df: df[MA].plot()
+            if MA in df: df[MA].plot(alpha=alpha)
 
         if sample_size <= 120:
             if 'BB20u' in df and 'BB20d' in df:
-                df['BB20u'].plot(color='#1f77b4')
-                df['BB20d'].plot(color='#1f77b4')
-                plt.fill_between(df.index, df['BB20u'], df['BB20d'], color='blue', alpha=0.05)
+                df['BB20u'].plot(color='#1f77b4', alpha=alpha)
+                df['BB20d'].plot(color='#1f77b4', alpha=alpha)
+                plt.fill_between(df.index, df['BB20u'], df['BB20d'], color='blue', alpha=alpha/4)
              # pandas plot's default color
              #    >>> prop_cycle = plt.rcParams['axes.prop_cycle']
              #    >>> prop_cycle.by_key()['color']
@@ -307,6 +316,8 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
         pivot = df.copy(deep=True)
         pivot = pivot[pivot['pivot']>0]
         plt.plot(pivot['xcord'],pivot['pivot'], linestyle='-', marker='o', markersize=6, color='#1f77b4', linewidth=2)
+        
+
 
     # plot candlesticks (core data) for the most recent period
     recent_days = 60
@@ -322,11 +333,16 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
             if price_range < 0.01:
                 price_range = 0.01
 
+            # plot volume
+            if 'vol_adjusted' in df.columns:
+                plt.bar(data["xcord"], data['vol_adjusted'], data["width"], bottom=fig_ymin, color='grey', alpha=0.4)
+
             # plot day open and day close
             plt.bar(data["xcord"], body_range, data["width"], bottom=body_low, color=data["color"])
             # plot day high and day low
             if sample_size < 360:
                 plt.bar(data["xcord"], price_range, data["width"] / 5, bottom=price_low, color=data["color"])
+                
 
             # # plot market benchmark data S&P500
             # if sample_size < 200 and "weather" in df.columns:
