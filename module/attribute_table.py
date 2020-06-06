@@ -144,6 +144,7 @@ class AttributeTable:
         for symbol, row in self._attribute_table.iterrows():
             file = self.data_dir + "/" + symbol + ".txt"
             if os.path.exists(file):
+                # read in data
                 try:
                     price = pd.read_csv(file, sep="\t", parse_dates=['date'], index_col=['date'])
                 except ValueError:
@@ -151,18 +152,24 @@ class AttributeTable:
                     price = self.df_rename_columns(price)
                 except:
                     e = sys.exc_info()[0]
-                    print("x-> Error while reading historical data; ", e)
-
-                if self.kwargs["weekly"]:
-                    price = TimeSeriesPlus(price).get_weekly()
-                    price = TimeSeriesPlus(price).sma_multiple().df
+                    print("x-> Error while reading historical data for {}\t error: {}".format(symbol, e))
+                    self._attribute_table = self._attribute_table.drop(symbol)
 
                 # remove rows with NA and remove df with <60 rows
                 price.replace('', np.nan, inplace=True)
                 price = price.dropna(axis='index')
-                if price.shape[0] < minimal_rows:
+                if price.shape[0] < minimal_rows and symbol in self._attribute_table.index:
                     self._attribute_table = self._attribute_table.drop(symbol, axis=0)
                     continue
+
+                # weekly transformation if requested
+                if self.kwargs["weekly"]:
+                    try:
+                        price = TimeSeriesPlus(price).get_weekly()
+                    except:
+                        print("x-> Error while weekly-data transformation for {}; {}".format(symbol, sys.exc_info()[0]))
+                    price = TimeSeriesPlus(price).sma_multiple().df
+
 
                 price = price.sort_index(axis=0)
 
@@ -299,18 +306,31 @@ class AttributeTable:
             if self.kwargs["filter_surging_volume"]:
                 # filter for combination of volume increase with price going down
                 args = self.kwargs["filter_surging_volume"].split(',')
+                if len(args) <2:
+                    print ("Invalid filter_surging_volume argument: {}".format(self.kwargs["filter_surging_volume"]))
+                    exit(0)
                 length = int(args[0])
                 ratio = float(args[1])
+                change_in_price = 0
+                if len(args)>2:
+                    change_in_price = float(args[2])
                 for symbol in self._attribute_table.index:
-                    status = False
-                    if self.sts_daily[symbol].get_price_change_to_close() >= 0:
-                        if self.sts_daily[symbol].get_relative_volume(length) >= ratio:
-                            print(symbol, " price ", self.sts_daily[symbol].get_price_change_to_close(), " ",
-                                  self.sts_daily[symbol].get_relative_volume(length))
-                            # print ("          ", self.sts_daily[symbol].get_relative_volume(length))
-                            status = True
-                    self._attribute_table.loc[symbol, "Sort"] = status
-                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
+                    # status is True if 1) price change >0; 2) relative volume > 1
+                    # status = False
+                    # if self.sts_daily[symbol].get_price_change_to_close() >= change_in_price:
+                    #     if self.sts_daily[symbol].get_relative_volume(length) >= ratio:
+                    #         print(symbol, " price ", self.sts_daily[symbol].get_price_change_to_close(), " ",
+                    #               self.sts_daily[symbol].get_relative_volume(length))
+                    #         # print ("          ", self.sts_daily[symbol].get_relative_volume(length))
+                    #         status = True
+                    # self._attribute_table.loc[symbol, "Sort"] = status
+                # self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
+
+                    self._attribute_table.loc[symbol, "Sort"], details = self.sts_daily[symbol].get_volume_index(length)
+                    # print (symbol, self.sts_daily[symbol].get_volume_index(length))
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]>3]
+                self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
+
                 print("# {:>5} symbols meet filter_surging_volume".format(len(self._attribute_table)))
 
             # method filter based on stochastic signal

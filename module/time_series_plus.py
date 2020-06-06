@@ -7,13 +7,15 @@ from module.candlestick import date_to_index
 class TimeSeriesPlus:
     def __init__(self, df):
         self.df = df.copy(deep=True)
+        self.ema_length = [3, 20, 50, 100, 150, 200]
         self.sma_multiple()
 
     def sma_multiple(self):
-        ma_days = [3, 20, 50, 100, 150, 200]
+        # ma_days = [3, 20, 50, 100, 150, 200]
         df = self.df
         if '4. close' in df.columns:
-            for days in ma_days:
+            # for days in ma_days:
+            for days in self.ema_length:
                 # df[str(days)+'MA'] = df["4. close"].rolling(days).mean()
                 df[str(days) + 'MA'] = df["4. close"].ewm(span=days, adjust=False).mean()
             # simple moving average for bollinger band
@@ -74,7 +76,7 @@ class TimeSeriesPlus:
         return self
 
     def horizon_slice(self, days):
-        """Number of pivots in the same zone defined last close
+        """Number of pivots in the same zone defined by last close
 
         Args:
             days (int): recent period in which pivots are considered
@@ -88,12 +90,20 @@ class TimeSeriesPlus:
             return 0
         df = df.tail(days)
 
-        # define horizontal zone to capture pivots
-        last = df['4. close'][-1]
-        radius1 = df['ATR'][-1]/2   # by half of ATR
-        radius2 = last/100          # by 1% last close
-        up_lim = max(last + radius1, last + radius2)
-        lw_lim = min(last - radius1, last - radius2)
+        # define horizontal zone
+
+        # # use ATR
+        # last = df['4. close'][-1]
+        # radius1 = df['ATR'][-1]/2   # by half of ATR
+        # radius2 = last/100          # by 1% last close
+        # up_lim = max(last + radius1, last + radius2)
+        # lw_lim = min(last - radius1, last - radius2)
+
+        # use last day's trading range
+        # up_lim = df['2. high'][-1]
+        # lw_lim = df['3. low'][-1]
+        up_lim = df['1. open'][-1]
+        lw_lim = df['4. close'][-1]
 
         self.df['last_trading_range'] = "{},{}".format(lw_lim, up_lim)
         # print (df['4. close'][-1], df['ATR'][-1], up_lim, lw_lim)
@@ -321,15 +331,38 @@ class TimeSeriesPlus:
         return status
 
     def hit_ema_support(self, ema, days):
-        """Close touch down and slice by EMA
+        """Last close touch down and slice EMA
+
+        Args:
+            ema (int): length in days to define ema. When eam equals 0, all key EMAs will be tested
+            days (int): period to assess if two EMAs do not cross each other
+
+        Returns
+            boolean: test negative or positive
         """
-        if not self.ema_slice(ema):
-            return False
-        stay_above = self.two_dragon_internal(3, ema, days, self.df, 0.95)
-        if stay_above == 1:
-            return True
+        status = False
+
+        if ema != 0:
+            if ema not in self.ema_length:
+                return status
+            elif not self.ema_slice(ema):
+                return status
+            else:
+                stay_above = self.two_dragon_internal(3, ema, days, self.df, 0.95)
+                if stay_above == 1:
+                    return True
+                else:
+                    return False
         else:
-            return False
+            for length in self.ema_length:
+                if length < 50:
+                    continue
+                if not self.ema_slice(length):
+                    continue
+                stay_above = self.two_dragon_internal(3, length, days, self.df, 0.95)
+                if stay_above == 1:
+                    return True
+        return status
 
     def in_uptrend_internal(self, dataframe, TRNDdays, cutoff, blind):
         """ 
@@ -727,6 +760,29 @@ class TimeSeriesPlus:
             ratio = last/average
         return ratio
 
+    def get_volume_index(self, n=10, m=30):
+        ratio = 0
+        df = self.df
+        df['Volume_MA'] = df['5. volume'].rolling(n).mean()
+        df['Volume_MA_long'] = df['5. volume'].rolling(m).mean()
+        df['relative_volume'] = df['5. volume'] / (df['Volume_MA']+ 1)
+        df['relative_volume_max'] = df['relative_volume'].rolling(n).max()
+        relative_volume_max_last = df['relative_volume_max'][-1]
+        relative_volume_current = df['5. volume'][-1]/(df['Volume_MA_long'][-1]+1)
+
+        # too stringent
+        # df['volume_adjusted'] = np.where(df['5. volume'] > df['Volume_MA_long'], df['Volume_MA_long'], df['5. volume'])
+        # df['volume_adjusted_ma'] = df['volume_adjusted'].rolling(m).mean()
+        # relative_volume_current = df['5. volume'][-1]/(df['volume_adjusted_ma'][-1]+1)
+
+        relative_volume_current = df['5. volume'][-1] / (df['Volume_MA_long'][-1] + 1)
+        if relative_volume_max_last > 2 and 0 < relative_volume_current < 1:
+            ratio = relative_volume_max_last/relative_volume_current
+
+        # print(df['relative_volume'][-6:])
+        # print (df['relative_volume_max'][-1], df['relative_volume'][-1], ratio)
+        return ratio, f"{relative_volume_max_last} {relative_volume_current}"
+
     def get_price_change_to_close(self):
         df = self.df
         df['change_to_close'] = df['4. close'].diff()/df['4. close'].shift()
@@ -761,6 +817,8 @@ class TimeSeriesPlus:
         indicator = str(indicator) + 'MA'
         last_day = self.df.iloc[-1, :]
         status = False
+        if indicator not in last_day:
+            return status
         if last_day['3. low'] <= last_day[indicator] <= last_day['4. close']:
             status = True
         return status

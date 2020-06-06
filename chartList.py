@@ -118,13 +118,14 @@ def chart_securities(file, **kwargs):
 
             rsi = str( sts.get_rsi(14))[0:4]
 
-            if kwargs["weekly_chart"]:
-                daily_price = TimeSeriesPlus(daily_price).get_weekly()
-                daily_price = TimeSeriesPlus(daily_price).sma_multiple().df
-            else:
-                if len(ref) > 30:
-                    daily_price = daily_price.join(ref)
-            daily_price=daily_price.tail(500)
+            # if kwargs["weekly_chart"]:
+            #     print(ref.head(5))
+            #     ref = TimeSeriesPlus(ref).get_weekly()
+            #     ref = TimeSeriesPlus(ref).sma_multiple().df
+            # else:
+            #     if len(ref) > 30:
+            #         daily_price = daily_price.join(ref)
+            # daily_price=daily_price.tail(500)
 
             mysecurity = candlestick.Security(daily_price)
 
