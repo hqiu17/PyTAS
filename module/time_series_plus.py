@@ -417,6 +417,10 @@ class TimeSeriesPlus:
         dataframe = self.df.copy(deep=True)
         return dataframe
 
+    def get_volume(self):
+        self.df['vol'] = self.df['5. volume']
+        return self
+    
     def sampling_stks_bb(self, n, m):
         prediction = 15
         stok, stod, signal, paction = self.stochastic_cross_internal(n, m)
