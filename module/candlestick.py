@@ -374,7 +374,9 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
         facecolor = 'green'
     # coloring based on RSI
     if 'RSI-7' in sticker or 'RSI-8' in sticker or 'RSI-9' in sticker:
-        facecolor = 'red'
+        facecolor = '#f38ed9'
+    elif 'RSI-2' in sticker or 'RSI-1' in sticker:
+        facecolor = '#c5f38e'
     # coloring based on zacks ranking
     if 'A/' in sticker or 'B/' in sticker or 'C/' in sticker or 'zr1' in sticker or 'zr2' in sticker:
         color = "blue"

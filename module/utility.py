@@ -189,9 +189,9 @@ def get_output_filename(infile, **kwargs):
     if kwargs["filter_rsi"]:
         file_name = file_name + ".frsi" + kwargs["filter_rsi"].replace(',', '-')
     if kwargs["filter_surging_volume"]:
-        file_name = file_name + ".fVol" + kwargs["filter_surging_volume"].replace(',', '-')
-
-
+        file_name = file_name + ".fSvl" + kwargs["filter_surging_volume"].replace(',', '-')
+    if kwargs["filter_exploding_volume"]:
+        file_name = file_name + ".fEvl" + kwargs["filter_surging_volume"].replace(',', '-')
 
     if kwargs["weekly"]:
         file_name = file_name + ".week"

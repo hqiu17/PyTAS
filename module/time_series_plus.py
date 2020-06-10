@@ -24,6 +24,11 @@ class TimeSeriesPlus:
             df['BB20u'] = df['20SMA'] + df['STD20'] * 2
             df['BB20d'] = df['20SMA'] - df['STD20'] * 2
             df['BB20d_SMA10'] = df['BB20d'].rolling(10).mean()
+
+            df['v5_SMA'] = df["5. volume"].rolling(5).mean()
+            df['v10_SMA'] = df["5. volume"].rolling(10).mean()
+            df['v15_SMA'] = df["5. volume"].rolling(15).mean()
+            df['v20_SMA'] = df["5. volume"].rolling(20).mean()
         return self
 
     def find_pivot_simple(self, length):
@@ -174,18 +179,6 @@ class TimeSeriesPlus:
             ratio = (df["3. low"][-1] - df["BB20d"][-1]) / (df["BB20u"][-1] - df["BB20d"][-1])
         return ratio
 
-    def get_trading_uprange(self, day):
-        """ 
-        Get the distance between last closing price and the maximum price in specified time
-        
-        Argument
-            day : time length to calculate maximum price
-        Return
-            float, the difference in percentage
-        """
-        df = self.df.copy(deep=True)
-        prices = df["4. close"].tail(day)
-        return (prices.max() - prices[-1]) / prices.max()
 
     # def in_uptrend(self, days, interval=3, cutoff=0.75, blind=0):
     #     status=False
@@ -277,7 +270,7 @@ class TimeSeriesPlus:
         stok, stod, signal, paction = self.stochastic_cross_internal(n, m)
         return stok[-1], stod[-1], signal[-1], paction[-1]
 
-    def two_dragon_internal(self, MAdays1, MAdays2, TRNDdays, dataframe, cutoff=0.8):
+    def two_dragon_internal(self, MAdays1, MAdays2, TRNDdays, dataframe, cutoff=0.8, vol=False):
         """ Test parallel ema in defined period
         Args:
             MAdays1 (int): length for 1st ema
@@ -286,16 +279,21 @@ class TimeSeriesPlus:
             dataframe (pandas dataframe): historical data
             cutoff (float): frequency of datapoint supporting parallel
         Returns:
-            status (boolean): test result
+            status (-1, 0 , 1): test result
         """
 
         status = 0  # =0: undetermined status; =1: 1st ema above 2nd ema; =-1: 1st ema below 2nd ema
 
         df = dataframe.copy(deep=True)
-        ma1_key = str(MAdays1) + "MA"
-        ma2_key = str(MAdays2) + "MA"
+        if vol:
+            ma1_key = "v" + str(MAdays1) + "_SMA"
+            ma2_key = "v" + str(MAdays2) + "_SMA"
+        else:
+            ma1_key = str(MAdays1) + "MA"
+            ma2_key = str(MAdays2) + "MA"
 
         # if dataframe length is not sufficient to calculate ema, return 0
+
         if (TRNDdays + MAdays1) > df.shape[0] or (TRNDdays + MAdays2) > df.shape[0]:
             # print(f"dataframe length {df.shape[0]} is not sufficient to calculate and do test using ema")
             return status
@@ -322,12 +320,12 @@ class TimeSeriesPlus:
             status = -1
         return status
 
-    def two_dragon(self, *args):
+    def two_dragon(self, *args, vol=False):
         """ Test 2 parallel EMAs in defined period
         """
         cutoff = 0.8
-        if len(args) == 4: cutoff = args[3]
-        status = self.two_dragon_internal(args[0], args[1], args[2], self.df, cutoff)
+        if len(args) == 4: cutoff = float(args[3])
+        status = self.two_dragon_internal(args[0], args[1], args[2], self.df, cutoff, vol)
         return status
 
     def hit_ema_support(self, ema, days):
@@ -757,35 +755,58 @@ class TimeSeriesPlus:
         ratio = 0
         df = self.df
         df['Volume_MA'] = df['5. volume'].rolling(n).mean()
+        df['Volume_background'] = df['5. volume'].rolling(30).mean()
         last = df['5. volume'][-1]
         average = df['Volume_MA'][-1]
+        average_background = df['Volume_background'][-1]
         # print ('-->> ', last, average)
-        if last > 0:
-            ratio = last/average
+        if average_background > 0:
+            ratio = average/average_background
         return ratio
 
     def get_volume_index(self, n=10, m=30):
+        """Get index for volume contraction
+
+        Args:
+            n (int): lookback period for high volume day
+            m (int): period length for volume moving average
+
+        return:
+            float: high volume / low volume ratio
+            string: maximum relative volume in lookback preriod and current relative volume
+        """
         ratio = 0
         df = self.df
+
+        # relative volume in lookback period
         df['Volume_MA'] = df['5. volume'].rolling(n).mean()
-        df['Volume_MA_long'] = df['5. volume'].rolling(m).mean()
         df['relative_volume'] = df['5. volume'] / (df['Volume_MA']+ 1)
         df['relative_volume_max'] = df['relative_volume'].rolling(n).max()
         relative_volume_max_last = df['relative_volume_max'][-1]
-        relative_volume_current = df['5. volume'][-1]/(df['Volume_MA_long'][-1]+1)
 
-        # too stringent
-        # df['volume_adjusted'] = np.where(df['5. volume'] > df['Volume_MA_long'], df['Volume_MA_long'], df['5. volume'])
-        # df['volume_adjusted_ma'] = df['volume_adjusted'].rolling(m).mean()
-        # relative_volume_current = df['5. volume'][-1]/(df['volume_adjusted_ma'][-1]+1)
+        # relative volume at present day
+        df['Volume_MA_long'] = df['5. volume'].rolling(m).mean()
+        relative_volume_current = df['5. volume'][-1]/(df['Volume_MA_long'][-1] + 1)
 
-        relative_volume_current = df['5. volume'][-1] / (df['Volume_MA_long'][-1] + 1)
+        # calculate ratio
         if relative_volume_max_last > 2 and 0 < relative_volume_current < 1:
             ratio = relative_volume_max_last/relative_volume_current
 
-        # print(df['relative_volume'][-6:])
-        # print (df['relative_volume_max'][-1], df['relative_volume'][-1], ratio)
         return ratio, f"{relative_volume_max_last} {relative_volume_current}"
+
+    def get_trading_uprange(self, day):
+        """
+        Get the distance between last closing price and the maximum price in specified time
+
+        Argument
+            day : time length to calculate maximum price
+        Return
+            float, the difference in percentage
+        """
+        df = self.df.copy(deep=True)
+        prices = df["4. close"].tail(day)
+        return (prices.max() - prices[-1]) / prices.max()
+
 
     def get_price_change_to_close(self):
         df = self.df

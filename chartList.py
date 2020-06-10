@@ -104,7 +104,7 @@ def chart_securities(file, **kwargs):
         note = row['header']
         antt = row['annotation']
 
-        sts_daily = tickers.sts_daily
+        sts_daily = tickers.get_dict_timeseries()
         if sticker in sts_daily:
             sts = sts_daily[sticker]
             daily_price = sts.df

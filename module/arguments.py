@@ -64,9 +64,11 @@ def get_parser():
     parser.add_argument("-espt", "--filter_hit_ema_support", type=str, default="",
                         help=": filter for last close hitting ema from above, e.g., 100,10")
     parser.add_argument("-frsi", "--filter_rsi", type=str, default="",
-                        help=": filter for rsi within defined rang, e.g., 0,30")
-    parser.add_argument("-fvol", "--filter_surging_volume", type=str, default="",
-                        help=": filter for high volume relative to its SMA, e.g., 10,2.5")
+                        help=": filter for rsi within defined rang, eg, 0,30")
+    parser.add_argument("-fsvl", "--filter_surging_volume", type=str, default="",
+                        help=": filter for volume contraction given two length, eg, 10,30")
+    parser.add_argument("-fevl", "--filter_exploding_volume", type=str, default="",
+                        help=": filter for high volume relative to its SMA value, eg, 10")
 
 
     # SORT
