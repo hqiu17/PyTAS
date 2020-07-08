@@ -3,12 +3,14 @@ Security class and methods for candlestick
 """
 
 import re
+import math
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from decimal import Decimal
 from matplotlib.font_manager import FontProperties
 
-moving_average_parameters = [3, 20, 50, 100, 150, 200]
+moving_average_parameters = [3, 10, 20, 50, 100, 150, 200]
 
 
 class Security:
@@ -200,8 +202,7 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
     # print (df0)
 
     df = df0  # .copy(deep=True)
-    # print(df.columns)
-    # print(df.head(5))
+
     # figure out the maximum/minimum of x/y axis
     sample_size = len(df.index)
     fig_ymin = df.min(axis=0)["3. low"]
@@ -232,15 +233,7 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
 
         plt.axhspan(lw_lim, up_lim, color="gray", alpha=0.3)
 
-    # draw horizontal lines for last day's low and close
-    color_closing = "black"
-    if df.iloc[-1]["4. close"] > df.iloc[-1]["1. open"]:
-        color_closing = "green"
-    elif df.iloc[-1]["4. close"] < df.iloc[-1]["1. open"]:
-        color_closing = "red"
-    plt.axhline(y=df.iloc[-1]["1. open"], color=color_closing, linewidth=0.2)
-    plt.axhline(y=df.iloc[-1]["4. close"], color=color_closing, linewidth=0.2)
-    plt.axhspan(df.iloc[-1]["1. open"], df.iloc[-1]["4. close"], color=color_closing, alpha=0.3)
+
 
     # plot year by year vertical lines
     # if sample_size > 480:
@@ -272,31 +265,79 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
     # plt.axvspan(df.index[index1], df.index[index2], color="orange", alpha=0.1)
 
     # plot specified dates
+    y_buy = 0
+    y_sell = 0
     if date_added:
         x, y = date_to_xy(date_added, df)
+        y_buy = y
         plt.axvline(x=x, color="blue", dashes=[5, 10], linewidth=1)
         plt.axhline(y=y, color="blue", dashes=[5, 10], linewidth=1)
 
     if date_sold:
         x, y = date_to_xy(date_sold, df)
+        y_sell = y
         plt.axvline(x=x, color="orange", dashes=[5, 10], linewidth=1)
         plt.axhline(y=y, color="orange", dashes=[5, 10], linewidth=1)
 
-    # plot SMA
+    color = 'yellow'
+    PL_cololred = False
+    if y_buy and y_sell:
+        if y_buy * 0.97 >= y_sell:
+            color = 'red'
+            print('PL', y_buy, y_sell, 'redLoss')
+            plt.axhspan(y_sell, y_buy, color=color, alpha=0.3)
+            PL_cololred = True
+        elif y_buy * 1.03 < y_sell:
+            color = 'green'
+            print('PL', y_buy, y_sell, color)
+            plt.axhspan(y_buy, y_sell, color=color, alpha=0.3)
+            PL_cololred = True
+        else:
+            print('PL', y_buy, y_sell, color)
+            plt.axhspan(y_buy, y_sell, color=color, alpha=0.3)
+            PL_cololred = True
+
+
+    # draw horizontal lines for last day's low and close
+    if not PL_cololred:
+        color_closing = "black"
+        if df.iloc[-1]["4. close"] > df.iloc[-1]["1. open"]:
+            color_closing = "green"
+        elif df.iloc[-1]["4. close"] < df.iloc[-1]["1. open"]:
+            color_closing = "red"
+        plt.axhline(y=df.iloc[-1]["1. open"], color=color_closing, linewidth=0.2)
+        plt.axhline(y=df.iloc[-1]["4. close"], color=color_closing, linewidth=0.2)
+        plt.axhspan(df.iloc[-1]["1. open"], df.iloc[-1]["4. close"], color=color_closing, alpha=0.3)
+
+
+    # plot closing
     df["4. close"].plot(color='black')
 
     alpha = 0.8
     if 'vol' in df.columns:
-        ratio = (fig_ymax - fig_ymin)/(df['vol'].max()+1)
+        df['vol'] = df['vol'] + 100
+        # df['vol'] = np.log2(df['vol'])
+        ratio = (fig_ymax - fig_ymin)/(df['vol'].max() - df['vol'].min())
         df['vol_adjusted'] = df['vol'] * ratio
-        
+        base = df['vol_adjusted'].min() - fig_ymin
+        df['vol_adjusted'] = (df['vol_adjusted'] - base)
+
+        # plt.axhline(y=df['vol_adjusted'].max(), color="black", dashes=[5, 10], linewidth=6)
+        # plt.axhline(y=df['vol_adjusted'].min(), color="orange", dashes=[5, 10], linewidth=6)
+
+        df['vol_adjusted'].plot(color="blue", alpha=alpha/2)
         # make trend lines and bollinger band lighter
         alpha = alpha/3
-        
+
+    # plot SMA
     if sample_size > 50:
         for days in moving_average_parameters[1:]:
             MA = str(days) + "MA"
-            if MA in df: df[MA].plot(alpha=alpha)
+            if MA in df:
+                df[MA].plot(alpha=alpha/2)
+            MA = str(days) + "MASMA"
+            if MA in df:
+                df[MA].plot(dashes=[2,2], color='grey', alpha=alpha/2)
 
         if sample_size <= 120:
             if 'BB20u' in df and 'BB20d' in df:
@@ -316,8 +357,6 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
         pivot = df.copy(deep=True)
         pivot = pivot[pivot['pivot']>0]
         plt.plot(pivot['xcord'],pivot['pivot'], linestyle='-', marker='o', markersize=6, color='#1f77b4', linewidth=2)
-        
-
 
     # plot candlesticks (core data) for the most recent period
     recent_days = 60
@@ -335,13 +374,15 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
 
             # plot volume
             if 'vol_adjusted' in df.columns:
-                plt.bar(data["xcord"], data['vol_adjusted'], data["width"], bottom=fig_ymin, color='grey', alpha=0.4)
+                # plt.bar(data["xcord"], data['vol_adjusted'], data["width"], bottom=df_recent['vol_adjusted'].min(), color='yellow', alpha=0.4)
+                plt.bar(data["xcord"], data['vol_adjusted'], data["width"],
+                        color='yellow', alpha=0.4)
 
             # plot day open and day close
             plt.bar(data["xcord"], body_range, data["width"], bottom=body_low, color=data["color"])
             # plot day high and day low
             if sample_size < 360:
-                plt.bar(data["xcord"], price_range, data["width"] / 5, bottom=price_low, color=data["color"])
+                plt.bar(data["xcord"], price_range, data["width"]/5, bottom=price_low, color=data["color"])
                 
 
             # # plot market benchmark data S&P500
@@ -432,11 +473,13 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
     # plot price change compared to 30/120 days ago
     bleedout_1mon = bleedout(df.tail(20)["4. close"])
     bleedout_3mon = bleedout(df.tail(60)["4. close"])
-    growth_alltime = up(df["4. close"])
+    bleedout_full_rang = bleedout(df["4. close"])
+    growth_full_range = up(df["4. close"])
     plt.gca().text(
         fig_xmin + fig_xmax * 0.005,
         fig_ymax - (fig_ymax - fig_ymin) * y_position,
-        f"v{bleedout_1mon}{bleedout_3mon}^{growth_alltime}",
+        # f"v{bleedout_1mon}{bleedout_3mon}^{growth_full_range}",
+        f"v{bleedout_full_rang} {bleedout_1mon} ^{growth_full_range}",
         fontsize=17, color='blue'
     )
     y_position += interval
@@ -449,6 +492,7 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
             color = "white"
             facecolor = "gray"
         sort = sort * 100
+        sort = sort if sort >= 0.001 else '0.00000'
         plt.gca().text(
             fig_xmin + fig_xmax * 0.005,
             fig_ymax - (fig_ymax - fig_ymin) * y_position,
@@ -583,12 +627,16 @@ def up(pandas_series):
     start = pandas_series.iloc[0]
     end = pandas_series.iloc[-1]
     # return f"{end:.2f}/{start:.2f}:{int(((end-start)/start)*100):>4}%"
-    up = "NA"
+    a = "NA"
     if np.isnan(start) or np.isnan(end):
         pass
     else:
-        up = f"{int(((end - start) / start) * 100)}%"
-    return up
+        percentage = 0
+        if start:
+            percentage = ((end - start) / start) * 100
+            precentage = round(Decimal(percentage), 2)
+        a = f"{percentage}%"
+    return a
 
 
 def set_row_num(num):

@@ -7,7 +7,7 @@ from module.candlestick import date_to_index
 class TimeSeriesPlus:
     def __init__(self, df):
         self.df = df.copy(deep=True)
-        self.ema_length = [3, 20, 50, 100, 150, 200]
+        self.ema_length = [3, 10, 20, 50, 100, 150, 200]
         self.sma_multiple()
 
     def sma_multiple(self):
@@ -17,7 +17,12 @@ class TimeSeriesPlus:
             # for days in ma_days:
             for days in self.ema_length:
                 # df[str(days)+'MA'] = df["4. close"].rolling(days).mean()
-                df[str(days) + 'MA'] = df["4. close"].ewm(span=days, adjust=False).mean()
+                ema = str(days) + 'MA'
+                df[ema] = df["4. close"].ewm(span=days, adjust=False).mean()
+                emama = ema + 'SMA'
+                df[emama] = df[ema].rolling(10).mean()
+            # df['150MASMA'] = df['150MA'].rolling(10).mean()
+
             # simple moving average for bollinger band
             df["20SMA"] = df["4. close"].rolling(20).mean()
             df['STD20'] = df["4. close"].rolling(20).std()
@@ -115,14 +120,14 @@ class TimeSeriesPlus:
         df['pivot_caught'] = np.where( (lw_lim < df['pivot']) & (df['pivot'] < up_lim), 1, 0)
         return df['pivot_caught'].sum()
 
-    def hit_horizontal_support(self, days, length, num):
+    def hit_horizontal_support(self, days, length, num, touch_down=True):
         """Close touch down and slice by EMA
 
         Args:
             days (int): recent period in which pivots are considered
             length (int): length of period (in days) to calculate pivots and to test if 3EMA is above last close
             num (int): minimal number of pivots
-
+            touch_down (boolean): touch down (True) or touch up (False)
         Returns:
               boolean
         """
@@ -131,9 +136,12 @@ class TimeSeriesPlus:
         if self.horizon_slice(days) < num:
             return False
 
-        # test if prices were above support
+        # test if prices were above support or below support before slicing
         horizontal_support = self.df['4. close'][-1]
-        stay_above = self.two_dragon_internal(3, horizontal_support, length, self.df, 0.9)
+        if touch_down:
+            stay_above = self.two_dragon_internal(3, horizontal_support, length, self.df, 0.9)
+        else:
+            stay_above = self.two_dragon_internal(horizontal_support, 3, length, self.df, 0.9)
 
         if stay_above == 1:
             return True
@@ -251,6 +259,24 @@ class TimeSeriesPlus:
             status = 1
         return status
 
+    def ema_cross_up(self, fast, slow, persist=1):
+        df = self.df.copy(deep=True)
+        sma_fast = df['4. close'].ewm(span=fast, adjust=False).mean()
+        sma_slow = df['4. close'].ewm(span=slow, adjust=False).mean()
+        df["signal"] = sma_fast - sma_slow
+        df["signal"] = np.where(df["signal"] > 0, 1, 0)
+
+        status = 0
+        tail = df["signal"][-8:]    # examine the last 8 days
+        switch = tail.diff().sum()
+        landing = tail.sum()
+        if (tail[0] == 0 and                # at the first day macd is below signal line
+                tail[-1] == 1 and           # at the last day macd is above signal line
+                switch == 1 and             # only one crossing happened
+                landing <= persist):        # days elapsed after crossing is less than cutoff (persist)
+            status = 1
+        return status
+
     def stochastic_cross_internal(self, n, m):
         df = self.df.copy(deep=True)
         high = df['2. high']
@@ -353,7 +379,7 @@ class TimeSeriesPlus:
                     return False
         else:
             for length in self.ema_length:
-                if length < 50:
+                if length < 100:
                     continue
                 if not self.ema_slice(length):
                     continue
@@ -379,10 +405,19 @@ class TimeSeriesPlus:
 
         if df.shape[0] == 0:
             df = dataframe.copy(deep=True)
+
+        if df['150MA'][-1] < df['150MASMA'][-1]:
+            return status
+        # if df['100MA'][-1] < df['100MASMA'][-1]:
+        #     return status
+        # if df['50MA'][-1] < df['50MASMA'][-1]:
+        #     return status
+
         count = 0
         count += self.two_dragon_internal(20, 50, TRNDdays, df, cutoff)
-        count += self.two_dragon_internal(50, 100, TRNDdays, df, cutoff)
+        count += self.two_dragon_internal(50,  100, TRNDdays, df, cutoff)
         count += self.two_dragon_internal(100, 150, TRNDdays, df, cutoff)
+        # count += self.two_dragon_internal(150, 200, TRNDdays, df, cutoff)
         if count == 3:
             status = 1
         elif count == -3:
@@ -407,13 +442,27 @@ class TimeSeriesPlus:
                  '3. low': 'min',
                  '4. close': 'last',
                  '5. volume': 'sum'}
-        offset = pd.offsets.timedelta(days=-6)
+        # offset = pd.offsets.timedelta(days=-6)
+        offset = None
         self.df = self.df.resample('W', loffset=offset).apply(logic)
+
+    def to_monthly(self):
+        logic = {'1. open': 'first',
+                 '2. high': 'max',
+                 '3. low': 'min',
+                 '4. close': 'last',
+                 '5. volume': 'sum'}
+        # offset = pd.offsets.timedelta(days=-6)
+        offset = None
+        self.df = self.df.resample('M', loffset=offset).apply(logic)
 
     def get_weekly(self):
         self.to_weekly()
-        dataframe = self.df.copy(deep=True)
-        return dataframe
+        return self.df.copy(deep=True)
+
+    def get_monthly(self):
+        self.to_monthly()
+        return self.df.copy(deep=True)
 
     def get_volume(self):
         self.df['vol'] = self.df['5. volume']
@@ -764,7 +813,7 @@ class TimeSeriesPlus:
             ratio = average/average_background
         return ratio
 
-    def get_volume_index(self, n=10, m=30):
+    def get_volume_index(self, n=10, m=30, hold = ""):
         """Get index for volume contraction
 
         Args:
@@ -774,13 +823,15 @@ class TimeSeriesPlus:
         return:
             float: high volume / low volume ratio
             string: maximum relative volume in lookback preriod and current relative volume
+            hold: if hold equals 'h', test if price hold well after high volume date
         """
         ratio = 0
         df = self.df
+        df["date"] = df.index
 
-        # relative volume in lookback period
+        # relative volume in look-back period
         df['Volume_MA'] = df['5. volume'].rolling(n).mean()
-        df['relative_volume'] = df['5. volume'] / (df['Volume_MA']+ 1)
+        df['relative_volume'] = df['5. volume'] / (df['Volume_MA'] + 1)
         df['relative_volume_max'] = df['relative_volume'].rolling(n).max()
         relative_volume_max_last = df['relative_volume_max'][-1]
 
@@ -788,10 +839,26 @@ class TimeSeriesPlus:
         df['Volume_MA_long'] = df['5. volume'].rolling(m).mean()
         relative_volume_current = df['5. volume'][-1]/(df['Volume_MA_long'][-1] + 1)
 
-        # calculate ratio
-        if relative_volume_max_last > 2 and 0 < relative_volume_current < 1:
-            ratio = relative_volume_max_last/relative_volume_current
+        # test if price stays above the low of the highest volume date
+        hold_well = False
+        if hold:
+            date_highest_volume = df['5. volume'][(0-n):].idxmax()
+            index_highest_volume = date_to_index(date_highest_volume, df["date"])
+            date_lowest_closing =  df['3. low'][index_highest_volume:].idxmin()
+            days_after_highVol = df.shape[0] - 1 - index_highest_volume
+            # print(date_highest_volume, date_lowest_closing, index_highest_volume)
+            if date_highest_volume == date_lowest_closing and days_after_highVol >= 3:
+                if hold == 'h':
+                    hold_well = True
+            elif hold == 'x':
+                    hold_well = True
+        else:
+            hold_well = True
 
+        # calculate ratio
+        if relative_volume_max_last > 2 and 0 < relative_volume_current < 1 and hold_well:
+            ratio = relative_volume_max_last/relative_volume_current
+            #ratio = relative_volume_current
         return ratio, f"{relative_volume_max_last} {relative_volume_current}"
 
     def get_trading_uprange(self, day):
@@ -905,3 +972,38 @@ class TimeSeriesPlus:
                 ratio = (price_examine / date_added - price_date0) / price_date0
 
         return ratio
+
+    def get_consolidation(self, period):
+        # self.do_rsi_wilder()
+        df = self.df.copy(deep=True)
+        average = df['4. close'].rolling(period).mean()[-1]
+        # print(average)
+
+        sub = df.copy(deep=True).tail(period)
+        sub['std_error'] = (sub['4. close'] - average) ** 2
+        std = sub['std_error'].rolling(period).mean()[-1]/average
+
+        # print(sub['std_error'])
+        # print(std)
+        # print('//')
+
+        return std
+
+
+    def ema_attraction(self, ema_len, period):
+        # self.do_rsi_wilder()
+        df = self.df.copy(deep=True)
+        # average = df['4. close'].rolling(period).mean()[-1]
+        ema = self.df[f"{ema_len}MA"]
+        # print(average)
+
+        sub = df.copy(deep=True).tail(period)
+        sub['std_error'] = ((sub['4. close'] - ema) ** 2) / ema
+        std = sub['std_error'].rolling(period).mean()[-1]
+
+        # print(sub['std_error'])
+        # print(std)
+        # print('//')
+
+        return std
+

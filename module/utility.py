@@ -164,12 +164,23 @@ def get_output_filename(infile, **kwargs):
         file_name = file_name + ".sInd"
     if ',' in kwargs["sort_sink"]:
         file_name = file_name + ".ssk" + kwargs["sort_sink"].replace(',', '_')
+    if kwargs["sort_rsi_std"]:
+        file_name = file_name + ".sRs" + kwargs["sort_rsi_std"].replace(',', '_')
+
+
+
+    if kwargs["sort_ema_attraction"]:
+        file_name = file_name + ".sEa" + kwargs["sort_ema_attraction"].replace(',', '_')
+
+
+
 
     if ',' in kwargs["sort_change_to_ref"]:
         file_name = file_name + ".sChgRef" + kwargs["sort_change_to_ref"].replace(',', '_')
-
     if kwargs["sort_earningDate"]:
         file_name = file_name + ".sed"
+    if kwargs["filter_ema_sgl"]:
+        file_name = file_name + ".femas" + kwargs["filter_ema_sgl"].replace(',', '-')
     if kwargs["filter_macd_sgl"]:
         file_name = file_name + ".fMacd" + kwargs["filter_macd_sgl"].replace(',', '-')
     if kwargs["filter_stochastic_sgl"]:
@@ -183,18 +194,26 @@ def get_output_filename(infile, **kwargs):
     if kwargs["filter_hit_ema_support"]:
         file_name = file_name + ".fEmaSpt" + kwargs["filter_hit_ema_support"].replace(',', '-')
     if kwargs["filter_hit_horizontal_support"]:
-        file_name = file_name + ".fSptSli" + kwargs["filter_hit_horizontal_support"].replace(',', '-')
+        file_name = file_name + ".fSliSpt" + kwargs["filter_hit_horizontal_support"].replace(',', '-')
+    if kwargs["filter_hit_horizontal_resistance"]:
+        file_name = file_name + ".fSliRst" + kwargs["filter_hit_horizontal_support"].replace(',', '-')
     if kwargs["filter_horizon_slice"]:
-        file_name = file_name + ".fHorSli" + kwargs["filter_horizon_slice"].replace(',', '-')
+        file_name = file_name + ".fSliHrz" + kwargs["filter_horizon_slice"].replace(',', '-')
     if kwargs["filter_rsi"]:
-        file_name = file_name + ".frsi" + kwargs["filter_rsi"].replace(',', '-')
+        file_name = file_name + ".fRsi" + kwargs["filter_rsi"].replace(',', '-')
     if kwargs["filter_surging_volume"]:
         file_name = file_name + ".fSvl" + kwargs["filter_surging_volume"].replace(',', '-')
     if kwargs["filter_exploding_volume"]:
-        file_name = file_name + ".fEvl" + kwargs["filter_surging_volume"].replace(',', '-')
+        file_name = file_name + ".fEvl" + kwargs["filter_exploding_volume"].replace(',', '-')
+    if kwargs["filter_price"]:
+        file_name = file_name + ".fPrc" + kwargs["filter_price"].replace(',', '-')
+
+
 
     if kwargs["weekly"]:
-        file_name = file_name + ".week"
+        file_name = file_name + ".weekly"
+    if kwargs["monthly"]:
+        file_name = file_name + ".monthly"
     if kwargs["weekly_chart"]:
         file_name = file_name + ".wkch"
 

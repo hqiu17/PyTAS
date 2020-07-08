@@ -20,11 +20,15 @@ def get_parser():
                         type=int, default=1,
                         help=": width gradient of candlestick")
     parser.add_argument("-r","--row_number",
-                        type=int, default=7,
+                        type=int, default=5,
                         help=": number of rows per image file")
     parser.add_argument("-w", "--weekly",
                         default=False,
                         help=": analyze using weekly data",
+                        action='store_true')
+    parser.add_argument("-m", "--monthly",
+                        default=False,
+                        help=": analyze using monthly data",
                         action='store_true')
     parser.add_argument("-wc", "--weekly_chart",
                         default=False,
@@ -50,7 +54,9 @@ def get_parser():
                         help=": sort names by trading range and filter data when this value is"
                              " greater than zero (eg, -str 20,0.05 means 20-day trading range with 0.05 cutoff)")
     parser.add_argument("-macd", "--filter_macd_sgl", type=str, default="",
-                        help=": filter for macd signal crossing upward")                 
+                        help=": filter for macd signal crossing upward signal, eg, 12,24,3")
+    parser.add_argument("-emas", "--filter_ema_sgl", type=str, default="",
+                        help=": filter for ema crossing upward signal, eg, 5,10,3")
     parser.add_argument("-stcs", "--filter_stochastic_sgl", type=str, default="",
                         help=": filter for stochastic K>D signal. example 14,3,20,all or 14,3,20,crs")
     parser.add_argument("-mslc", "--filter_ema_slice", type=str, default="",
@@ -58,7 +64,9 @@ def get_parser():
     parser.add_argument("-pslc", "--filter_horizon_slice", type=str, default="",
                         help=": last price hitting support defined by 2 pivots in the past 200 days, e.g., 200,2")
     parser.add_argument("-hspt", "--filter_hit_horizontal_support", type=str, default="",
-                        help=": last price touch down support defined by 2 pivots in the past 200 days, e.g., 200,2")
+                        help=": last price touches from above support defined by 2 pivots in the past 200 days, e.g., 200,2")
+    parser.add_argument("-hrst", "--filter_hit_horizontal_resistance", type=str, default="",
+                        help=": last price touches from below resistance defined by 2 pivots in the past 200 days, e.g., 200,2")
     parser.add_argument("-pema", "--filter_parallel_ema", type=str, default="",
                         help=": filter for 2 ema that are largely parallel in defined period, e.g., 20,50,60 or 20,50,60,0.8")
     parser.add_argument("-espt", "--filter_hit_ema_support", type=str, default="",
@@ -69,6 +77,8 @@ def get_parser():
                         help=": filter for volume contraction given two length, eg, 10,30")
     parser.add_argument("-fevl", "--filter_exploding_volume", type=str, default="",
                         help=": filter for high volume relative to its SMA value, eg, 10")
+    parser.add_argument("-fprc", "--filter_price", type=str, default="",
+                        help=": filter for last closing price within defined range, eg, 20,500")
 
 
     # SORT
@@ -95,6 +105,13 @@ def get_parser():
                              "the last 3 days)")
     parser.add_argument("-bld", "--blind", type=int, default=0,
                         help=": ignore recent period defined in days (for hypothesis test)")
+    parser.add_argument("-srs", "--sort_rsi_std", type=str, default='',
+                        help=": sort by standard deviation of RSI in look-back period (eg, 20,6)")
+
+
+    parser.add_argument("-sea", "--sort_ema_attraction", type=str, default='',
+                        help=": sort by ema-vs-closing standard deviation in look-back period (eg, 50,10)")
+
     #SAMPLING
     parser.add_argument("-smpl", "--sample",
                         type=str, default="",
@@ -102,7 +119,7 @@ def get_parser():
 
     parser.add_argument("-bdat", "--backtest_date",
                         type=str, default="",
-                        help=": xxx")
+                        help=": analyzed data using closing at back test date (eg, 2012-12-12,30)")
 
 
 

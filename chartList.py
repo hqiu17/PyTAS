@@ -48,7 +48,7 @@ def chart_securities(file, **kwargs):
     gradient = kwargs["gradient"]
     weekly = kwargs['weekly']
     backtest_date = kwargs['backtest_date']
-
+    default_row_num = kwargs['row_number']    
     # Basic processing the security data based on descriptive attributes
 
     df = pd.read_csv(file, sep="\t")
@@ -65,8 +65,9 @@ def chart_securities(file, **kwargs):
             file_name = backtest_date + '.' + file_name
 
     # set the number of rows and columns within each output chart based on
-    # the total number of input securities and charting related argument (-p)
-    default_row_num = 4 if "," in dayspan else 5
+    # the total number of input securities and charting related argument (-p) 
+    if "," in dayspan:
+        default_row_num = 4
     panel_row = candlestick.set_row_num(num_stickers)
     panel_row = default_row_num if panel_row > default_row_num else panel_row
     panel_col=panel_row
@@ -85,7 +86,6 @@ def chart_securities(file, **kwargs):
     tickers = AttributeTable(df, directory, kwargs)
     tickers.work()
     df = tickers.get_attribute_table()
-
 
 
     # check for SPY data and add it to dataframe as background

@@ -52,15 +52,10 @@ class AttributeTable:
 
 
     def get_attribute_table(self):
-        print ("xxx")
-        print("get table self.backtest_date: ", self.backtest_date)
         if self.check_date:
             self._attribute_table["Date Sold"] = self.check_date
         if self.backtest_date:
             self._attribute_table["Date Added"] = self.backtest_date
-
-        print ('date added', self.backtest_date)
-        print ('date sold ', self.check_date)
         return self._attribute_table
 
     def get_dict_timeseries(self):
@@ -82,7 +77,7 @@ class AttributeTable:
 
         # format data-added and -sold information
         if "Date Added" in df.columns:
-            df["Date Added"] = df["Date Added"].apply(utility.fix_date_addeddded)
+            df["Date Added"] = df["Date Added"].apply(utility.fix_date_added)
             df["Date Added"] = pd.to_datetime(df["Date Added"])
         if "Date Sold" in df.columns:
             df["Date Sold"] = df["Date Sold"].apply(utility.fix_date_added)
@@ -163,7 +158,6 @@ class AttributeTable:
             arg = self.kwargs['backtest_date']
             if ',' in arg:
                 backtest_date, extension = arg.split(',')
-                extension = int(extension)
             else:
                 backtest_date = arg
         self.backtest_date = backtest_date
@@ -196,33 +190,24 @@ class AttributeTable:
                     self._attribute_table = self._attribute_table.drop(symbol, axis=0)
                     continue
 
-                # weekly transformation if requested
-                # if self.kwargs["weekly"]:
-                #     try:
-                #         price = TimeSeriesPlus(price).get_weekly()
-                #     except:
-                #         print("x-> Error while weekly-data transformation for {}; {}".format(symbol, sys.exc_info()[0]))
-                #     price = TimeSeriesPlus(price).sma_multiple().df
-                #
-                # price = price.sort_index(axis=0)
-
-                # remove df without data in backtest date
-                # if self.kwargs['backtest_date']:
-                #     backtest_date = self.kwargs['backtest_date']
-                #     if backtest_date in price.index:
-                #         loci = price.index.get_loc(self.kwargs['backtest_date'])
-                #         price = price[0:loci + 1]
-                #     else:
-                #         self._attribute_table = self._attribute_table.drop(symbol, axis=0)
-                #         continue
-
                 backtest_date_found = True
                 if self.backtest_date:
                     backtest_date = self.backtest_date
                     if backtest_date in price.index:
+
+                        self._attribute_table.loc[symbol, 'Date_added'] = backtest_date
+
                         loci = price.index.get_loc(backtest_date) + 1
-                        if self.backtest_date_extension:
+
+                        try:
+                            extension = int(self.backtest_date_extension)
+                        except:
                             extension = self.backtest_date_extension
+
+                        if isinstance(extension, str):
+                            if self.backtest_date_extension == 'sticky':
+                                pass
+                        elif isinstance(extension, int):
                             loci_check = loci + 1 + extension
                             length = price.shape[0]
                             if loci_check > length-1:
@@ -234,14 +219,23 @@ class AttributeTable:
                                 try:
                                     price_plot = TimeSeriesPlus(price_plot).get_weekly()
                                 except:
-                                    print("x-> Error while weekly-data transformation for {}; {}".format(symbol,
-                                                                                                         sys.exc_info()[
-                                                                                                             0]))
-                                price_plot = TimeSeriesPlus(price_plot).sma_multiple().df
+                                    print("x-> Error while weekly-data transformation "
+                                          "for {}; {}".format(symbol, sys.exc_info()[0]))
+                            elif self.kwargs["monthly"]:
+                                try:
+                                    price_plot = TimeSeriesPlus(price_plot).get_monthly()
+                                except:
+                                    print("x-> Error while monthly-data transformation "
+                                          "for {}; {}".format(symbol, sys.exc_info()[0]))
 
-
+                            price_plot = TimeSeriesPlus(price_plot).sma_multiple().df
                             dict_sts_plot[symbol] = TimeSeriesPlus(price_plot)
                             self.check_date = str(price.index[loci_check]).split(' ')[0]
+
+                            # self.fate
+                            self._attribute_table.loc[symbol, 'Date_sold'] = 'XXXX'
+
+
                         price = price[0:loci]
                     else:
                         self._attribute_table = self._attribute_table.drop(symbol, axis=0)
@@ -256,12 +250,17 @@ class AttributeTable:
                     try:
                         price = TimeSeriesPlus(price).get_weekly()
                     except:
-                        print("x-> Error while weekly-data transformation for {}; {}".format(symbol, sys.exc_info()[0]))
-                    price = TimeSeriesPlus(price).sma_multiple().df
+                        print("x-> Error while weekly-data transformation "
+                              "for {}; {}".format(symbol, sys.exc_info()[0]))
+                elif self.kwargs["monthly"]:
+                    try:
+                        price = TimeSeriesPlus(price).get_monthly()
+                    except:
+                        print("x-> Error while monthly-data transformation "
+                              "for {}; {}".format(symbol, sys.exc_info()[0]))
 
-
+                price = TimeSeriesPlus(price).sma_multiple().df
                 price = price.sort_index(axis=0)
-
                 dict_sts[symbol] = TimeSeriesPlus(price)
 
 
@@ -326,6 +325,23 @@ class AttributeTable:
 
         if len(self.kwargs) > 0:
 
+            if self.kwargs["filter_price"]:
+                arg = self.kwargs["filter_price"]
+                args = arg.split(',')
+                pmin = 0
+                pmax = 10000
+                if len(args) == 2:
+                    (pmin, pmax) = list(map(float, args))
+                else:
+                    print(f"last closing price argument cannot be recognized: {arg}")
+                    exit(1)
+                self._attribute_table["Sort"] = 0
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].df['4. close'][-1]
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > pmin]
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] < pmax]
+                print("# {:>5} symbols meet price criteria".format(len(self._attribute_table)))
+
             # method sort_trange
             if self.kwargs["sort_trange"]:
                 """
@@ -372,6 +388,29 @@ class AttributeTable:
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
                 print("# {:>5} symbols meet macd criteria".format(len(self._attribute_table)))
 
+            if self.kwargs["filter_ema_sgl"]:
+                # Filter securities based on MACD cross above signal line
+                # Outcome: shorten instance variable 'description'
+                # example: input variable "14,20"
+                #     K line with 14-day EMA and D line with 20-day EMA
+
+                arg = self.kwargs["filter_ema_sgl"]
+                args = arg.split(',')
+                if len(args) == 2:
+                    (fast, slow) = list(map(int, args))
+                    days = 1
+                elif len(args) == 3:
+                    (fast, slow, days) = list(map(int, args))
+                else:
+                    print(f"macd argument cannot be recognized: {arg}")
+                    exit(1)
+
+                self._attribute_table["Sort"] = 0
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].ema_cross_up(fast, slow, days)
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
+                print("# {:>5} symbols meet ema crossing up criteria".format(len(self._attribute_table)))
+
             if self.kwargs["filter_rsi"]:
                 # filter for rsi within define range, e.g., 20,50
                 args = self.kwargs["filter_rsi"].split(',')
@@ -385,22 +424,24 @@ class AttributeTable:
                     self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_rsi()
                 self._attribute_table = self._attribute_table.loc[low < self._attribute_table["Sort"]]
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] < high]
+                self._attribute_table = self._attribute_table.sort_values(["Sort"])
                 print("# {:>5} symbols meet rsi criteria".format(len(self._attribute_table)))
 
             if self.kwargs["filter_surging_volume"]:
                 # filter for combination of volume increase with price going down
                 args = self.kwargs["filter_surging_volume"].split(',')
                 if len(args) <2:
-                    print ("Invalid filter_surging_volume argument: {}".format(self.kwargs["filter_surging_volume"]))
+                    print ("Invalid filter_surging_volume argument: {}".format(args))
                     exit(0)
                 length = int(args[0])
                 ratio = float(args[1])
-                change_in_price = 0
+                hold_up = ''
                 if len(args)>2:
-                    change_in_price = float(args[2])
+                    hold_up = args[2]
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"], details = self.sts_daily[symbol].get_volume_index(length)
-                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]>ratio]
+                    self._attribute_table.loc[symbol, "Sort"], details = self.sts_daily[symbol].get_volume_index(length, hold=hold_up)
+                    print(symbol, details)
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > ratio]
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
                 print("# {:>5} symbols meet filter_surging_volume".format(len(self._attribute_table)))
 
@@ -519,6 +560,8 @@ class AttributeTable:
 
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] <= cutoff]
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
+                print("# {:>5} symbols meet bollinger band distance criteria {}".
+                      format(len(self._attribute_table), filter_bbdistance))
 
             if self.kwargs["sort_performance"]:
                 arg = self.kwargs["sort_performance"]
@@ -527,8 +570,50 @@ class AttributeTable:
                 for symbol in self._attribute_table.index:
                     self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_latest_performance(
                         arg)
-
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
+
+            if self.kwargs["sort_rsi_std"]:
+                arg = self.kwargs["sort_rsi_std"]
+                period = 20
+                cutoff = 10
+                if ',' in arg:
+                    alist = arg.split(',')
+                    period = int(alist[0])
+                    cutoff = float(alist[1])
+                else:
+                    period = int(arg)
+
+                self._attribute_table["Sort"] = 0
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_consolidation(period)
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] <= cutoff]
+                self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
+                print(self._attribute_table["Sort"])
+                print("# {:>5} symbols meet sort_rsi_std requirement: {}".format(len(self._attribute_table), arg))
+
+            if self.kwargs["sort_ema_attraction"]:
+                arg = self.kwargs["sort_ema_attraction"]
+                ema_len = 50
+                period = 10
+                if ',' in arg:
+                    alist = arg.split(',')
+                    ema_len = int(alist[0])
+                    period = int(alist[1])
+                else:
+                    print(f"Invalid sort_ema_attraction argument {arg}")
+                    exit(1)
+
+                self._attribute_table["Sort"] = 0
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].ema_attraction(ema_len, period)
+                # self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] <= cutoff]
+                self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
+                print(self._attribute_table["Sort"])
+                print("# {:>5} symbols meet sort_ema_attraction requirement: {}".format(len(self._attribute_table), arg))
+
+
+
+
 
             if self.kwargs["filter_upward"]:
                 filter_upward = self.kwargs["filter_upward"]
@@ -537,10 +622,9 @@ class AttributeTable:
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
                     self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].in_uptrend(*args)
-
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
-                print(
-                    "# {:>5} symbols meet filter_upward criteria {}".format(len(self._attribute_table), filter_upward))
+                print("# {:>5} symbols meet filter_upward criteria {}".
+                      format(len(self._attribute_table), filter_upward))
 
             if self.kwargs["filter_horizon_slice"]:
                 try:
@@ -568,8 +652,8 @@ class AttributeTable:
                     self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].ema_slice(filter_ema_slice)
 
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
-                print(
-                    "# {:>5} symbols meet EMA slice criteria: {}".format(len(self._attribute_table), filter_ema_slice))
+                print("# {:>5} symbols meet EMA slice criteria: {}"
+                      .format(len(self._attribute_table), filter_ema_slice))
 
             if self.kwargs["filter_hit_horizontal_support"]:
                 try:
@@ -581,12 +665,27 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = False
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].hit_horizontal_support(days,
-                                                                                                              length,
-                                                                                                              num)
-
+                    self._attribute_table.loc[symbol, "Sort"] \
+                        = self.sts_daily[symbol].hit_horizontal_support(days, length, num)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
                 print("# {:>5} symbols meet support slice criteria: {}".format(len(self._attribute_table), args))
+
+            if self.kwargs["filter_hit_horizontal_resistance"]:
+                try:
+                    args = self.kwargs["filter_hit_horizontal_resistance"]
+                    days, length, num = list(map(int, args.split(',')))
+                except ValueError:
+                    print(f" argument {args} is invalid")
+                    exit(1)
+
+                self._attribute_table["Sort"] = False
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] \
+                        = self.sts_daily[symbol].hit_horizontal_support(days, length, num, touch_down=False)
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
+                print("# {:>5} symbols meet support slice criteria: {}".format(len(self._attribute_table), args))
+
+
 
             if self.kwargs["sort_ema_distance"] > 0:
                 # sort symbols by last close-to-SMA distance
