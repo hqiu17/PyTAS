@@ -154,17 +154,21 @@ class AttributeTable:
     def backtest(self):
         extension = ''
         backtest_date = ''
+        strategy = ''
         if self.kwargs['backtest_date']:
             arg = self.kwargs['backtest_date']
             if ',' in arg:
-                backtest_date, extension = arg.split(',')
+                backtest_date, extension, strategy = arg.split(',')
+                print ("backtest_date {}; extension {} strategy {}".format(backtest_date, extension, strategy))
+                self.backtest_date_extension = extension
+                self.backtest_strategy = strategy
+                self._attribute_table["PL"] = 0
+                self._attribute_table["exit Price"] = 0
+                self._attribute_table["Date sold"] = ''
             else:
                 backtest_date = arg
+
         self.backtest_date = backtest_date
-        self.backtest_date_extension = extension
-        self._attribute_table["PL"] = 0
-        self._attribute_table["exit Price"] = 0
-        self._attribute_table["Date sold"] = ''
 
     def read_timeseries(self, minimal_rows=60):
         """Read price data for each security and load into memory
@@ -174,7 +178,7 @@ class AttributeTable:
         dict_sts_plot = {}
         for symbol, row in self._attribute_table.iterrows():
         
-            print(symbol)   #xxx
+            # print(symbol)   #xxx
         
             file = self.data_dir + "/" + symbol + ".txt"
             if os.path.exists(file):
@@ -213,7 +217,8 @@ class AttributeTable:
                             extension = self.backtest_date_extension
 
                         if isinstance(extension, str):
-                            r, date = TimeSeriesPlus.fate(price, backtest_date, extension, 'this', 5, 'sticky')
+                            # r, date = TimeSeriesPlus.get_fate(price, backtest_date, extension, 'this', 5, 'sticky')
+                            pass
                         elif isinstance(extension, int):
                             loci_check = loci + 1 + extension
                             length = price.shape[0]
@@ -224,7 +229,8 @@ class AttributeTable:
                             dict_sts_plot[symbol] = TimeSeriesPlus(price_plot)
 #                             self.check_date = str(price.index[loci_check]).split(' ')[0]
 
-                            r, exit_price, date = TimeSeriesPlus.fate('xxx', price, backtest_date, extension, 'this', 5, 'sticky')
+                            r, exit_price, date = TimeSeriesPlus.get_fate(
+                                'xxx', price, backtest_date, extension, 'this', 5, self.backtest_strategy)
                             self._attribute_table.loc[symbol, 'PL'] = r
                             self._attribute_table.loc[symbol, 'exit Price'] = exit_price
                             self._attribute_table.loc[symbol, 'Date Sold'] = date

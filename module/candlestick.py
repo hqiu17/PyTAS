@@ -29,6 +29,7 @@ class Security:
         self.industry = ""
         self.annotation = ""
         self.sortvalue = ""
+        self.exit_price = ""
 
     def set_date_added(self, date):
         self.date_added = date
@@ -292,16 +293,16 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
     if y_buy and y_sell:
         if y_buy * 0.97 >= y_sell:
             color = 'red'
-            print('PL', y_buy, y_sell, 'redLoss')
+            print('PL2color', y_buy, y_sell, 'redLoss')
             plt.axhspan(y_sell, y_buy, color=color, alpha=0.3)
             PL_cololred = True
         elif y_buy * 1.03 < y_sell:
             color = 'green'
-            print('PL', y_buy, y_sell, color)
+            print('PL2color', y_buy, y_sell, color)
             plt.axhspan(y_buy, y_sell, color=color, alpha=0.3)
             PL_cololred = True
         else:
-            print('PL', y_buy, y_sell, color)
+            print('PL2color', y_buy, y_sell, color)
             plt.axhspan(y_buy, y_sell, color=color, alpha=0.3)
             PL_cololred = True
 
@@ -587,7 +588,7 @@ def draw_many_candlesticks(securities,
         redraw = draw_a_candlestick(ax, df, ticker, 3,
                                     mysecurity.get_date_added(),
                                     mysecurity.get_date_sold(),
-                                    mysecurity.get_exit_price(),                                    
+                                    mysecurity.get_exit_price(),
                                     mysecurity.get_industry(),
                                     mysecurity.get_annotation(),
                                     mysecurity.get_sortvalue()

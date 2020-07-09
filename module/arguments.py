@@ -107,8 +107,6 @@ def get_parser():
                         help=": ignore recent period defined in days (for hypothesis test)")
     parser.add_argument("-srs", "--sort_rsi_std", type=str, default='',
                         help=": sort by standard deviation of RSI in look-back period (eg, 20,6)")
-
-
     parser.add_argument("-sea", "--sort_ema_attraction", type=str, default='',
                         help=": sort by ema-vs-closing standard deviation in look-back period (eg, 50,10)")
 

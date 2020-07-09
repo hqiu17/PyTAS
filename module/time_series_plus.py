@@ -406,6 +406,8 @@ class TimeSeriesPlus:
         if df.shape[0] == 0:
             df = dataframe.copy(deep=True)
 
+        # if df['20MA'][-1] < df['20MASMA'][-1]:
+        #     return status
         if df['150MA'][-1] < df['150MASMA'][-1]:
             return status
         # if df['100MA'][-1] < df['100MASMA'][-1]:
@@ -468,205 +470,205 @@ class TimeSeriesPlus:
         self.df['vol'] = self.df['5. volume']
         return self
     
-    def sampling_stks_bb(self, n, m):
-        prediction = 15
-        stok, stod, signal, paction = self.stochastic_cross_internal(n, m)
-        sts = self.df.copy(deep=True)
-        sts['BB20dmax'] = sts["BB20d"].rolling(15).max()
-        bb_dist_low = (sts["3. low"] - sts['BB20d']) / (sts['BB20u'] - sts['BB20d'])
-        bb_dist_close = (sts["4. close"] - sts['BB20d']) / (sts['BB20u'] - sts['BB20d'])
-        length = len(signal)
+    # def sampling_stks_bb(self, n, m):
+    #     prediction = 15
+    #     stok, stod, signal, paction = self.stochastic_cross_internal(n, m)
+    #     sts = self.df.copy(deep=True)
+    #     sts['BB20dmax'] = sts["BB20d"].rolling(15).max()
+    #     bb_dist_low = (sts["3. low"] - sts['BB20d']) / (sts['BB20u'] - sts['BB20d'])
+    #     bb_dist_close = (sts["4. close"] - sts['BB20d']) / (sts['BB20u'] - sts['BB20d'])
+    #     length = len(signal)
+    #
+    #     win = 0
+    #     loss = 0
+    #     samples = {}
+    #     samples_test = {}
+    #     R = {}
+    #
+    #     sampling_window = 220
+    #     index_start = length - prediction - sampling_window
+    #     if index_start < 0: index_start = 0
+    #     for i in range(index_start, length - prediction):
+    #         # print (signal[200])
+    #         # if stod[i]<20 and signal[i]==1 and paction[i]<0.3 and bb_dist<0.05:
+    #
+    #         ############## fixed #############
+    #         if sts['5. volume'][i] < 100000: continue
+    #         # stochastic
+    #         if stod[i] > 30: continue
+    #         if signal[i] <= 0: continue
+    #         # no transaction due to gap up or down price on entry attempting day
+    #         if (sts['2. high'][i] > sts['2. high'][i + 1]) or (sts['2. high'][i] < sts['3. low'][i + 1]): continue
+    #         # candle pattern
+    #         if paction[i] > 0.3: continue
+    #         if sts['1. open'][i] > sts['4. close'][i] and paction[i] > 0.15: continue
+    #         # close-BB distance
+    #         """ bb_dist_low and bb_dist_close adjusted by Ely(20191106) and TPH(20191111)
+    #         """
+    #         if (bb_dist_low[i] < 0.05 or bb_dist_low[i - 1] < 0 or bb_dist_low[i - 2] < 0) and bb_dist_close[i] < 0.3:
+    #             pass
+    #         else:
+    #             continue
+    #             # remove straight down
+    #         if sts['BB20d'][i - 14] > sts['BB20d'][i - 10] > sts['BB20d'][i - 5] > sts['BB20d'][i]:
+    #             continue
+    #
+    #         ############## fixed #############
+    #
+    #         """
+    #         # keep straight up
+    #         if (
+    #             #sts['BB20d'][i] = sts['BB20dmax'][i]
+    #             (sts['BB20d'][i-12] < sts['BB20d'][i] and sts['BB20d'][i-6] < sts['BB20d'][i])
+    #         ): pass
+    #         else: continue
+    #         """
+    #         if sts['long'][i] <= 0: continue
+    #
+    #         # print ('6', sts.index[i])
+    #         # if not ( sts['50MA'][i] < sts["4. close"][i] and sts["4. close"][i] < sts['20MA'][i]): continue
+    #         # if not ( sts['50MA'][i] < sts['20MA'][i]): continue
+    #         # if sts['4. close'][i]<sts['20MA'][i]: continue
+    #         # print (sts.index[i])
+    #
+    #         # add days to be predicted
+    #         sub = sts.iloc[0:i + prediction - 1]
+    #         # add history and observe day
+    #         sub_test = sts.iloc[0:i + 1]
+    #
+    #         # remove downtrend
+    #         if self.in_uptrend_internal(sub_test, 90, 0.90, 0) == -1: continue
+    #         if self.in_uptrend_internal(sub_test, 60, 0.90, 0) == -1: continue
+    #         if self.in_uptrend_internal(sub_test, 20, 0.90, 0) == -1: continue
+    #         if self.in_uptrend_internal(sub_test, 120, 0.90, 0) == -1: continue
+    #
+    #         date = "{}".format(stok.index[i]).rstrip('00:00:00')
+    #         date = date.strip()
+    #         # if '18-10-' in date or '18-11-' in date or '18-12-' in date or '19-01-' in date: continue
+    #
+    #         # load test to be plotted
+    #         samples[date] = sub.tail(80)
+    #         # load show-data to be plotted
+    #         samples_test[date] = sub_test.tail(80)
+    #
+    #         sts['5daymin'] = sts['3. low'].rolling(3).min()
+    #         entry = sts['2. high'][i]
+    #         sell_stoploss = sts['5daymin'][i]
+    #         r_count = self.fate(sub, sts.index[i], entry, sell_stoploss, True)
+    #         R[date] = r_count
+    #         if r_count > 0: win += 1
+    #         if r_count < 0: loss += 1
+    #     return samples_test, samples, R, win, loss
 
-        win = 0
-        loss = 0
-        samples = {}
-        samples_test = {}
-        R = {}
+    # def sampling_below_bb(self):
+    #     samples = {}
+    #     sts = self.df.copy(deep=True)
+    #     bb_dist_close = (sts["4. close"] - sts['BB20d']) / (sts['BB20u'] - sts['BB20d'])
+    #     length = sts.shape[0]
+    #     for i in range(100, length - 15):
+    #         if bb_dist_close[i] < -0.1 and sts['BB20d'][i] < sts["2. high"][i + 1] and sts["4. close"][i] > \
+    #                 sts['100MA'][i]:
+    #             sub_show = sts.iloc[i - 100:i + 13]
+    #             sub_test = sts.iloc[i - 100:i]
+    #             if self.in_uptrend_internal(sub_test, 60, 0.8, 0) == 0: continue
+    #             date = "{}".format(sts.index[i]).rstrip('00:00:00')
+    #             samples[date] = sub_show
+    #     return samples
 
-        sampling_window = 220
-        index_start = length - prediction - sampling_window
-        if index_start < 0: index_start = 0
-        for i in range(index_start, length - prediction):
-            # print (signal[200])
-            # if stod[i]<20 and signal[i]==1 and paction[i]<0.3 and bb_dist<0.05:
+    # def sampling_plunge_macd(self, recovery=5):
+    #     PLUNGE_DEPTH = 0.15
+    #     SPAN_FOR_PLUNGE = 20  # days to calculate plunge of price
+    #     RSI_CUTFF = 15
+    #     AVOID = 20  # the latest day span to avoid from sampling
+    #     PRICE = 10
+    #     prediction = AVOID
+    #     self.macd_cross_up()
+    #     self.do_rsi_wilder()
+    #
+    #     sts0 = self.df.copy(deep=True)
+    #     sts = self.df.copy(deep=True)
+    #
+    #     # calculate necessary parameters
+    #     sts = sts.iloc[0:(sts.shape[0] - AVOID)]
+    #     # print('row num', sts.shape[0], sts0.shape[0])
+    #     sts['RSImin'] = sts['RSI'].rolling(recovery).min()
+    #     sts['signal'] = sts['signal'].diff()
+    #     sts['signal'] = np.where(sts['signal'] > 0, 1, 0)
+    #     sts['max_30days'] = sts['4. close'].rolling(SPAN_FOR_PLUNGE).max()
+    #     sts['loss'] = (sts['max_30days'] - sts['4. close']) / sts['max_30days']
+    #     sts['paction'] = sts['4. close'] - sts['1. open']
+    #
+    #     # filter for rows meeting requirement
+    #     sts['row_num'] = np.arange(len(sts))
+    #     length = sts.shape[0]
+    #     sampling_window = 220
+    #     index_start = length - prediction - sampling_window
+    #     if index_start < 0: index_start = 1
+    #     sts2 = sts.iloc[index_start: length - prediction]
+    #
+    #     """
+    #     print (sts.index[index_start], sts.index[length-prediction])
+    #     print (sts2.index[0], sts2.index[-1])
+    #     print (sts['row_num'][index_start], index_start, sts['row_num'][length-prediction],length-prediction)
+    #     print (sts2['row_num'][0], sts2['row_num'][-1])
+    #     """
+    #
+    #     # MACD data line cross up signal line
+    #     sts2 = sts2[sts2['signal'] == 1]
+    #
+    #     sts2 = sts2[sts2['5. volume'] > 100000]
+    #     sts2 = sts2[sts2['long'] > 0]
+    #     # Minimal price drop to be considered plunge
+    #     sts2 = sts2[sts2['loss'] > PLUNGE_DEPTH]
+    #     # Maximal RSI to be considered plunge
+    #     sts2 = sts2[sts2['RSImin'] < RSI_CUTFF]
+    #     # price moves up since openning
+    #     sts2 = sts2[sts2['paction'] > 0]
+    #
+    #     win = 0
+    #     loss = 0
+    #     samples = {}
+    #     samples_test = {}
+    #     R = {}
+    #     # print('row num', sts2.shape[0])
+    #
+    #     # print (index_start, length-prediction)
+    #     # for i in range(index_start, length-prediction):
+    #     back = 150
+    #     for i in sts2['row_num']:
+    #         # remove names with small price
+    #         if sts0['4. close'][i] < PRICE: continue
+    #         # trading day price doesn't hit buy stop loss
+    #         if sts0['2. high'][i] > sts0['2. high'][i + 1]: continue
+    #         # slice 65 days before and 20 days after the timepoint
+    #         start = i - back
+    #         if start < 0: start = 0
+    #         sub_show = sts0.iloc[start:i + AVOID]
+    #         sub_test = sts0.iloc[start:i + 1]
+    #         # remove poor dataset
+    #         if sub_show.shape[0] < 5: continue
+    #         # remove late 2018 and early 2019 period
+    #
+    #         if self.in_uptrend_internal(sub_test, len(sub_test), 0.9, 0) == -1:
+    #             print('heavy downtrend')
+    #             continue
+    #
+    #         date = "{}".format(sts.index[i]).rstrip('00:00:00')
+    #         # if '18-10-' in date or '18-11-' in date or '18-12-' in date or '19-01-' in date: continue
+    #
+    #         samples[date] = sub_show
+    #         samples_test[date] = sub_test
+    #
+    #         sts['5daymin'] = sts['3. low'].rolling(5).min()
+    #         entry = sts['2. high'][i]
+    #         sell_stoploss = sts['5daymin'][i]
+    #         r_count = self.fate(sub_show, sts.index[i], entry, sell_stoploss)
+    #         R[date] = r_count
+    #         if r_count > 0: win += 1
+    #         if r_count < 0: loss += 1
+    #     return samples_test, samples, R, win, loss
 
-            ############## fixed #############
-            if sts['5. volume'][i] < 100000: continue
-            # stochastic
-            if stod[i] > 30: continue
-            if signal[i] <= 0: continue
-            # no transaction due to gap up or down price on entry attempting day
-            if (sts['2. high'][i] > sts['2. high'][i + 1]) or (sts['2. high'][i] < sts['3. low'][i + 1]): continue
-            # candle pattern
-            if paction[i] > 0.3: continue
-            if sts['1. open'][i] > sts['4. close'][i] and paction[i] > 0.15: continue
-            # close-BB distance
-            """ bb_dist_low and bb_dist_close adjusted by Ely(20191106) and TPH(20191111)
-            """
-            if (bb_dist_low[i] < 0.05 or bb_dist_low[i - 1] < 0 or bb_dist_low[i - 2] < 0) and bb_dist_close[i] < 0.3:
-                pass
-            else:
-                continue
-                # remove straight down
-            if sts['BB20d'][i - 14] > sts['BB20d'][i - 10] > sts['BB20d'][i - 5] > sts['BB20d'][i]:
-                continue
-
-            ############## fixed #############                
-
-            """
-            # keep straight up                
-            if (
-                #sts['BB20d'][i] = sts['BB20dmax'][i]
-                (sts['BB20d'][i-12] < sts['BB20d'][i] and sts['BB20d'][i-6] < sts['BB20d'][i])
-            ): pass
-            else: continue            
-            """
-            if sts['long'][i] <= 0: continue
-
-            # print ('6', sts.index[i])
-            # if not ( sts['50MA'][i] < sts["4. close"][i] and sts["4. close"][i] < sts['20MA'][i]): continue
-            # if not ( sts['50MA'][i] < sts['20MA'][i]): continue
-            # if sts['4. close'][i]<sts['20MA'][i]: continue
-            # print (sts.index[i])
-
-            # add days to be predicted
-            sub = sts.iloc[0:i + prediction - 1]
-            # add history and observe day
-            sub_test = sts.iloc[0:i + 1]
-
-            # remove downtrend
-            if self.in_uptrend_internal(sub_test, 90, 0.90, 0) == -1: continue
-            if self.in_uptrend_internal(sub_test, 60, 0.90, 0) == -1: continue
-            if self.in_uptrend_internal(sub_test, 20, 0.90, 0) == -1: continue
-            if self.in_uptrend_internal(sub_test, 120, 0.90, 0) == -1: continue
-
-            date = "{}".format(stok.index[i]).rstrip('00:00:00')
-            date = date.strip()
-            # if '18-10-' in date or '18-11-' in date or '18-12-' in date or '19-01-' in date: continue
-
-            # load test to be plotted
-            samples[date] = sub.tail(80)
-            # load show-data to be plotted
-            samples_test[date] = sub_test.tail(80)
-
-            sts['5daymin'] = sts['3. low'].rolling(3).min()
-            entry = sts['2. high'][i]
-            sell_stoploss = sts['5daymin'][i]
-            r_count = self.fate(sub, sts.index[i], entry, sell_stoploss, True)
-            R[date] = r_count
-            if r_count > 0: win += 1
-            if r_count < 0: loss += 1
-        return samples_test, samples, R, win, loss
-
-    def sampling_below_bb(self):
-        samples = {}
-        sts = self.df.copy(deep=True)
-        bb_dist_close = (sts["4. close"] - sts['BB20d']) / (sts['BB20u'] - sts['BB20d'])
-        length = sts.shape[0]
-        for i in range(100, length - 15):
-            if bb_dist_close[i] < -0.1 and sts['BB20d'][i] < sts["2. high"][i + 1] and sts["4. close"][i] > \
-                    sts['100MA'][i]:
-                sub_show = sts.iloc[i - 100:i + 13]
-                sub_test = sts.iloc[i - 100:i]
-                if self.in_uptrend_internal(sub_test, 60, 0.8, 0) == 0: continue
-                date = "{}".format(sts.index[i]).rstrip('00:00:00')
-                samples[date] = sub_show
-        return samples
-
-    def sampling_plunge_macd(self, recovery=5):
-        PLUNGE_DEPTH = 0.15
-        SPAN_FOR_PLUNGE = 20  # days to calculate plunge of price
-        RSI_CUTFF = 15
-        AVOID = 20  # the latest day span to avoid from sampling
-        PRICE = 10
-        prediction = AVOID
-        self.macd_cross_up()
-        self.do_rsi_wilder()
-
-        sts0 = self.df.copy(deep=True)
-        sts = self.df.copy(deep=True)
-
-        # calculate necessary parameters
-        sts = sts.iloc[0:(sts.shape[0] - AVOID)]
-        # print('row num', sts.shape[0], sts0.shape[0])
-        sts['RSImin'] = sts['RSI'].rolling(recovery).min()
-        sts['signal'] = sts['signal'].diff()
-        sts['signal'] = np.where(sts['signal'] > 0, 1, 0)
-        sts['max_30days'] = sts['4. close'].rolling(SPAN_FOR_PLUNGE).max()
-        sts['loss'] = (sts['max_30days'] - sts['4. close']) / sts['max_30days']
-        sts['paction'] = sts['4. close'] - sts['1. open']
-
-        # filter for rows meeting requirement
-        sts['row_num'] = np.arange(len(sts))
-        length = sts.shape[0]
-        sampling_window = 220
-        index_start = length - prediction - sampling_window
-        if index_start < 0: index_start = 1
-        sts2 = sts.iloc[index_start: length - prediction]
-
-        """
-        print (sts.index[index_start], sts.index[length-prediction])
-        print (sts2.index[0], sts2.index[-1])
-        print (sts['row_num'][index_start], index_start, sts['row_num'][length-prediction],length-prediction)
-        print (sts2['row_num'][0], sts2['row_num'][-1])
-        """
-
-        # MACD data line cross up signal line
-        sts2 = sts2[sts2['signal'] == 1]
-
-        sts2 = sts2[sts2['5. volume'] > 100000]
-        sts2 = sts2[sts2['long'] > 0]
-        # Minimal price drop to be considered plunge
-        sts2 = sts2[sts2['loss'] > PLUNGE_DEPTH]
-        # Maximal RSI to be considered plunge
-        sts2 = sts2[sts2['RSImin'] < RSI_CUTFF]
-        # price moves up since openning
-        sts2 = sts2[sts2['paction'] > 0]
-
-        win = 0
-        loss = 0
-        samples = {}
-        samples_test = {}
-        R = {}
-        # print('row num', sts2.shape[0])
-
-        # print (index_start, length-prediction)
-        # for i in range(index_start, length-prediction):
-        back = 150
-        for i in sts2['row_num']:
-            # remove names with small price
-            if sts0['4. close'][i] < PRICE: continue
-            # trading day price doesn't hit buy stop loss
-            if sts0['2. high'][i] > sts0['2. high'][i + 1]: continue
-            # slice 65 days before and 20 days after the timepoint
-            start = i - back
-            if start < 0: start = 0
-            sub_show = sts0.iloc[start:i + AVOID]
-            sub_test = sts0.iloc[start:i + 1]
-            # remove poor dataset
-            if sub_show.shape[0] < 5: continue
-            # remove late 2018 and early 2019 period
-
-            if self.in_uptrend_internal(sub_test, len(sub_test), 0.9, 0) == -1:
-                print('heavy downtrend')
-                continue
-
-            date = "{}".format(sts.index[i]).rstrip('00:00:00')
-            # if '18-10-' in date or '18-11-' in date or '18-12-' in date or '19-01-' in date: continue
-
-            samples[date] = sub_show
-            samples_test[date] = sub_test
-
-            sts['5daymin'] = sts['3. low'].rolling(5).min()
-            entry = sts['2. high'][i]
-            sell_stoploss = sts['5daymin'][i]
-            r_count = self.fate(sub_show, sts.index[i], entry, sell_stoploss)
-            R[date] = r_count
-            if r_count > 0: win += 1
-            if r_count < 0: loss += 1
-        return samples_test, samples, R, win, loss
-
-    def fate(self, df, observe_date, test_period=40, entry='next', stoploss=3, strategy='2R'):
+    def get_fate(self, df, observe_date, test_period=40, entry='next', stoploss=3, strategy='2R'):
         """Get outcome of a trade
         
         Args:
@@ -682,7 +684,7 @@ class TimeSeriesPlus:
             exit_date (str): exit date
         """
         
-        print('in fate')
+        print('in get_fate')
         print(observe_date, test_period, entry, stoploss, strategy)
         
         R = ''
@@ -692,8 +694,7 @@ class TimeSeriesPlus:
         risk = 0
         
         # invalide trading date
-        
-#         print(df.tail(2))
+
         if observe_date not in df.index:
             return R, exit_date
 
@@ -703,7 +704,7 @@ class TimeSeriesPlus:
         onboard = onboard.head(test_period)      # fixed holding period
         observed = df.iloc[:(observe_date_index + 1)]
         
-        # get stop loss price
+        f# get stop loss price
         stoploss_price = observed.tail(stoploss)['3. low'].min()
         
         # get entry price
@@ -721,8 +722,7 @@ class TimeSeriesPlus:
         profit_take = 2000000
         sticky = False
         if strategy.endswith('R'):
-            fixed_R = strategy.rstrip('R')
-
+            fixed_R = int(strategy.rstrip('R'))
             profit_take = entry_price + risk * fixed_R
         elif strategy == 'sticky':
             sticky = True
@@ -733,7 +733,6 @@ class TimeSeriesPlus:
         if onboard.shape[0] < 2: return 0
 
         exit = 0
-        last = 0
         exit_date = ''
         for date, row in onboard.iterrows():
             # price goes below stop loss and exit trade
@@ -751,7 +750,7 @@ class TimeSeriesPlus:
                     dist_byR = dist // risk
                     if dist_byR > 1:
                         stoploss_price = stoploss_price + risk * (dist_byR - 1)
-                elif row['2. high'] <= profit_take:
+                elif row['2. high'] > profit_take:
                     exit = profit_take
                     exit_date = date
                     break
@@ -761,7 +760,7 @@ class TimeSeriesPlus:
             exit = onboard['4. close'][-1]
             exit_date = onboard.index[-1]
             
-            print('exit=0', exit_date)    #xxx
+            print('exit on timeout', exit_date)    #xxx
         
         exit_date = str(exit_date).split(' ')[0]    
         
@@ -1073,12 +1072,24 @@ class TimeSeriesPlus:
         # print(average)
 
         sub = df.copy(deep=True).tail(period)
-        sub['std_error'] = ((sub['4. close'] - ema) ** 2) / ema
-        std = sub['std_error'].rolling(period).mean()[-1]
+        # sub['std_error'] = ((sub['4. close'] - ema) ** 2) / ema
+
+        sub['diff1'] = sub['10MA'] - sub['100MA']
+        sub['diff2'] = sub['10MA'] - sub['200MA']
+        sub['diff3'] = sub['100MA'] - sub['200MA']
+
+        sub['diffSum'] = sub['diff1'].abs() + sub['diff2'].abs() + sub['diff3'].abs()
+        sub['diffSum'] = sub['diffSum'] / sub['150MA']
+
+        std = sub['diffSum'].rolling(period).mean()[-1]
+
+        sub['diffLarge'] = np.where(sub['diffSum'] > std, 1, 0)
+
+        ratio = sub['diffLarge'].sum() / sub['diffLarge'].size
 
         # print(sub['std_error'])
         # print(std)
         # print('//')
 
-        return std
+        return ratio
 

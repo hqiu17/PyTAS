@@ -95,7 +95,7 @@ def chart_securities(file, **kwargs):
         even = 0
         r_total = 0
         for pl in series:
-            if abs(pl) < 1:
+            if abs(pl) < 0.6:
                 even += 1
             elif pl >= 1:
                 win += 1
@@ -103,7 +103,7 @@ def chart_securities(file, **kwargs):
                 loss += 1
             r_total += pl
         print(df['PL'])
-        print ("PL\t{}\t{}\t{}\t{}\t{}".format(win, loss, even, (win+loss+even), r_total))
+        print ("Profit&Loss\t{}\t{}\t{}\t{}\t{}".format(win, loss, even, (win+loss+even), r_total))
 
 
     # check for SPY data and add it to dataframe as background
@@ -160,14 +160,16 @@ def chart_securities(file, **kwargs):
                 if date and date != "na" and date != "NA":
                     mysecurity.set_date_sold(utility.fix_date_added(date))
             if "exit Price" in row:
-                mysecurity.set_exit_price(row["exit Price"])                
+                mysecurity.set_exit_price(row["exit Price"])
             if "Industry" in row:
                 mysecurity.set_industry(row["Industry"])
-
             if "Sort" in row:
                 mysecurity.set_sortvalue(row["Sort"])
 
-            securities[f"{sticker}: {note} RSI-{rsi}"] = mysecurity
+            mykey = f"{sticker}: {note} RSI-{rsi}"
+            if 'PL' in row:
+                mykey = mykey + ' ' + str(row["PL"])[:5] + 'r'
+            securities[mykey] = mysecurity
 
     # write processed dataframe to local file
     if kwargs["filterOnly"]:
