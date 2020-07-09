@@ -36,6 +36,9 @@ class Security:
     def set_date_sold(self, date):
         self.date_sold = date
 
+    def set_exit_price(self, price):
+        self.exit_price = price
+
     def set_note(self, note):
         self.note = note
 
@@ -68,6 +71,9 @@ class Security:
 
     def get_sortvalue(self):
         return self.sortvalue
+
+    def get_exit_price(self):
+        return self.exit_price
 
 
 def add_moving_averages(df):
@@ -194,7 +200,7 @@ def date_to_crosshair(date):
     pass
 
 def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
-                       date_added="", date_sold="",
+                       date_added="", date_sold="", exit_price='',
                        industry="",
                        annotation="",
                        sort=""):
@@ -281,6 +287,8 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
 
     color = 'yellow'
     PL_cololred = False
+    if exit_price:
+        y_sell = exit_price
     if y_buy and y_sell:
         if y_buy * 0.97 >= y_sell:
             color = 'red'
@@ -579,6 +587,7 @@ def draw_many_candlesticks(securities,
         redraw = draw_a_candlestick(ax, df, ticker, 3,
                                     mysecurity.get_date_added(),
                                     mysecurity.get_date_sold(),
+                                    mysecurity.get_exit_price(),                                    
                                     mysecurity.get_industry(),
                                     mysecurity.get_annotation(),
                                     mysecurity.get_sortvalue()
@@ -598,6 +607,7 @@ def draw_many_candlesticks(securities,
             redraw = draw_a_candlestick(ax, df, ticker, 3,
                                         mysecurity.get_date_added(),
                                         mysecurity.get_date_sold(),
+                                        mysecurity.get_exit_price(),     
                                         mysecurity.get_industry(),
                                         mysecurity.get_annotation()
                                         )

@@ -666,12 +666,67 @@ class TimeSeriesPlus:
             if r_count < 0: loss += 1
         return samples_test, samples, R, win, loss
 
-    def fate(self, df, observe_date, entry, sell_stoploss, sticky=False):
+    def fate(self, df, observe_date, test_period=40, entry='next', stoploss=3, strategy='2R'):
+        """Get outcome of a trade
+        
+        Args:
+            df (dataframe): time series data to go through (holding period)
+            observe_dat (str): date when buy signal is emitted
+            entry (str): entry price defined by today (this) or next day (next)
+            stoploss (int): lookback period (in days) to define stop loss price
+            strategy (str): 1) 2R, fixed profit taking at 2R; 2), sticky,
+                            raise stop loss as price goes up until it is hit by price
+        
+        Returns:
+            R (float): number of R made in this trade
+            exit_date (str): exit date
+        """
+        
+        print('in fate')
+        print(observe_date, test_period, entry, stoploss, strategy)
+        
+        R = ''
+        exit_date = ''
+        entry_price = ''
+        stoploss_price = ''
+        risk = 0
+        
+        # invalide trading date
+        
+#         print(df.tail(2))
+        if observe_date not in df.index:
+            return R, exit_date
+
+        # get holding period for loop through
         observe_date_index = df.index.get_loc(observe_date)
-
-        risk = entry - sell_stoploss + 0.000001
-
         onboard = df.iloc[observe_date_index + 1:]
+        onboard = onboard.head(test_period)      # fixed holding period
+        observed = df.iloc[:(observe_date_index + 1)]
+        
+        # get stop loss price
+        stoploss_price = observed.tail(stoploss)['3. low'].min()
+        
+        # get entry price
+        if entry == 'next':
+            entry_price = df['2. high'][observe_date]
+            if onboard.iloc[0]['2. high'] < entry_price:    # next price doest go up
+                return R, exit_date
+        elif entry == 'this':
+            entry_price = df['4. close'][observe_date]
+            
+        risk = entry_price - stoploss_price + 0.000001
+        
+        
+        # set up strategy
+        profit_take = 2000000
+        sticky = False
+        if strategy.endswith('R'):
+            fixed_R = strategy.rstrip('R')
+
+            profit_take = entry_price + risk * fixed_R
+        elif strategy == 'sticky':
+            sticky = True
+        
         # no trade if next day price does not go higher than anticipated entry
         # if onboard.iloc[0,:]['2. high'] < entry: return 0
         # holding period less than 2 (poor data) -> skip
@@ -679,27 +734,48 @@ class TimeSeriesPlus:
 
         exit = 0
         last = 0
-
+        exit_date = ''
         for date, row in onboard.iterrows():
-            if row['3. low'] <= sell_stoploss:
-                if row['2. high'] < sell_stoploss:
+            # price goes below stop loss and exit trade
+            if row['3. low'] <= stoploss_price:
+                if row['2. high'] < stoploss_price:
                     exit = row['4. close']
                 else:
-                    exit = sell_stoploss
+                    exit = stoploss_price
+                exit_date = date
                 break
+            # take profit or move up stop loss
             else:
-                # print('live', str(sell_stoploss) )
-                dist = row['4. close'] - sell_stoploss
+                dist = row['4. close'] - stoploss_price
                 if sticky:
                     dist_byR = dist // risk
                     if dist_byR > 1:
-                        sell_stoploss = sell_stoploss + risk * (dist_byR - 1)
-                exit = row['4. close']
-        # print ("//\n")
-        # print  (exit, entry, risk)
-        r = (exit - entry) / risk
-        if r > 0 and r < 0.001: r = 0
-        return r
+                        stoploss_price = stoploss_price + risk * (dist_byR - 1)
+                elif row['2. high'] <= profit_take:
+                    exit = profit_take
+                    exit_date = date
+                    break
+        
+        # No exit transaction is made in test period. exit at last closing price
+        if exit == 0:
+            exit = onboard['4. close'][-1]
+            exit_date = onboard.index[-1]
+            
+            print('exit=0', exit_date)    #xxx
+        
+        exit_date = str(exit_date).split(' ')[0]    
+        
+        print(exit, entry_price)
+        
+        R = (exit - entry_price) / risk
+        if abs(R) < 0.001: 
+            R = 0
+
+        print  ('entry_price', 'exit', 'stoploss_price', 'risk', 'R', 'exit_date')
+        print  (entry_price, exit, stoploss_price, risk, R, exit_date)
+        print ("//")
+                    
+        return R, exit, exit_date
 
     def get_atr(self, length, forward=False):
         df = self.df.copy(deep=True)
@@ -873,7 +949,6 @@ class TimeSeriesPlus:
         df = self.df.copy(deep=True)
         prices = df["4. close"].tail(day)
         return (prices.max() - prices[-1]) / prices.max()
-
 
     def get_price_change_to_close(self):
         df = self.df

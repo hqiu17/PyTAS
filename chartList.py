@@ -87,6 +87,24 @@ def chart_securities(file, **kwargs):
     tickers.work()
     df = tickers.get_attribute_table()
 
+    # summarize profit and loss
+    if 'PL' in df.columns:
+        series = df['PL']
+        win = 0
+        loss = 0
+        even = 0
+        r_total = 0
+        for pl in series:
+            if abs(pl) < 1:
+                even += 1
+            elif pl >= 1:
+                win += 1
+            elif pl <= -1:
+                loss += 1
+            r_total += pl
+        print(df['PL'])
+        print ("PL\t{}\t{}\t{}\t{}\t{}".format(win, loss, even, (win+loss+even), r_total))
+
 
     # check for SPY data and add it to dataframe as background
     spy = directory+"/"+"SPY"+".txt"
@@ -141,6 +159,8 @@ def chart_securities(file, **kwargs):
                 date = row["Date Sold"]
                 if date and date != "na" and date != "NA":
                     mysecurity.set_date_sold(utility.fix_date_added(date))
+            if "exit Price" in row:
+                mysecurity.set_exit_price(row["exit Price"])                
             if "Industry" in row:
                 mysecurity.set_industry(row["Industry"])
 

@@ -162,6 +162,9 @@ class AttributeTable:
                 backtest_date = arg
         self.backtest_date = backtest_date
         self.backtest_date_extension = extension
+        self._attribute_table["PL"] = 0
+        self._attribute_table["exit Price"] = 0
+        self._attribute_table["Date sold"] = ''
 
     def read_timeseries(self, minimal_rows=60):
         """Read price data for each security and load into memory
@@ -170,6 +173,9 @@ class AttributeTable:
         dict_sts = {}
         dict_sts_plot = {}
         for symbol, row in self._attribute_table.iterrows():
+        
+            print(symbol)   #xxx
+        
             file = self.data_dir + "/" + symbol + ".txt"
             if os.path.exists(file):
                 # read in data
@@ -189,13 +195,15 @@ class AttributeTable:
                 if price.shape[0] < minimal_rows and symbol in self._attribute_table.index:
                     self._attribute_table = self._attribute_table.drop(symbol, axis=0)
                     continue
-
+                
+                # handl backtest date
                 backtest_date_found = True
                 if self.backtest_date:
                     backtest_date = self.backtest_date
-                    if backtest_date in price.index:
 
-                        self._attribute_table.loc[symbol, 'Date_added'] = backtest_date
+                    if backtest_date in price.index:
+                        # assign backtest date
+                        self._attribute_table.loc[symbol, 'Date Added'] = backtest_date
 
                         loci = price.index.get_loc(backtest_date) + 1
 
@@ -205,15 +213,22 @@ class AttributeTable:
                             extension = self.backtest_date_extension
 
                         if isinstance(extension, str):
-                            if self.backtest_date_extension == 'sticky':
-                                pass
+                            r, date = TimeSeriesPlus.fate(price, backtest_date, extension, 'this', 5, 'sticky')
                         elif isinstance(extension, int):
                             loci_check = loci + 1 + extension
                             length = price.shape[0]
                             if loci_check > length-1:
                                 loci_check = -1
                             price_plot = price[0:loci_check]
+                            price_plot = TimeSeriesPlus(price_plot).sma_multiple().df
+                            dict_sts_plot[symbol] = TimeSeriesPlus(price_plot)
+#                             self.check_date = str(price.index[loci_check]).split(' ')[0]
 
+                            r, exit_price, date = TimeSeriesPlus.fate('xxx', price, backtest_date, extension, 'this', 5, 'sticky')
+                            self._attribute_table.loc[symbol, 'PL'] = r
+                            self._attribute_table.loc[symbol, 'exit Price'] = exit_price
+                            self._attribute_table.loc[symbol, 'Date Sold'] = date
+                            
                             # test xxx
                             if self.kwargs["weekly"]:
                                 try:
@@ -227,13 +242,6 @@ class AttributeTable:
                                 except:
                                     print("x-> Error while monthly-data transformation "
                                           "for {}; {}".format(symbol, sys.exc_info()[0]))
-
-                            price_plot = TimeSeriesPlus(price_plot).sma_multiple().df
-                            dict_sts_plot[symbol] = TimeSeriesPlus(price_plot)
-                            self.check_date = str(price.index[loci_check]).split(' ')[0]
-
-                            # self.fate
-                            self._attribute_table.loc[symbol, 'Date_sold'] = 'XXXX'
 
 
                         price = price[0:loci]
