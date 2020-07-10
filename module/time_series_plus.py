@@ -704,7 +704,7 @@ class TimeSeriesPlus:
         onboard = onboard.head(test_period)      # fixed holding period
         observed = df.iloc[:(observe_date_index + 1)]
         
-        f# get stop loss price
+        # get stop loss price
         stoploss_price = observed.tail(stoploss)['3. low'].min()
         
         # get entry price

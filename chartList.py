@@ -95,11 +95,12 @@ def chart_securities(file, **kwargs):
         even = 0
         r_total = 0
         for pl in series:
-            if abs(pl) < 0.6:
+            pl = float(pl)
+            if -0.3 < pl < 0.3:
                 even += 1
-            elif pl >= 1:
+            elif pl > 0 :
                 win += 1
-            elif pl <= -1:
+            elif pl < 0 :
                 loss += 1
             r_total += pl
         print(df['PL'])
