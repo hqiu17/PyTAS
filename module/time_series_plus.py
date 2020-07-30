@@ -13,6 +13,7 @@ class TimeSeriesPlus:
     def sma_multiple(self):
         # ma_days = [3, 20, 50, 100, 150, 200]
         df = self.df
+        df = df.sort_index(axis=0)
         if '4. close' in df.columns:
             # for days in ma_days:
             for days in self.ema_length:
@@ -21,7 +22,6 @@ class TimeSeriesPlus:
                 df[ema] = df["4. close"].ewm(span=days, adjust=False).mean()
                 emama = ema + 'SMA'
                 df[emama] = df[ema].rolling(10).mean()
-            # df['150MASMA'] = df['150MA'].rolling(10).mean()
 
             # simple moving average for bollinger band
             df["20SMA"] = df["4. close"].rolling(20).mean()
@@ -34,6 +34,7 @@ class TimeSeriesPlus:
             df['v10_SMA'] = df["5. volume"].rolling(10).mean()
             df['v15_SMA'] = df["5. volume"].rolling(15).mean()
             df['v20_SMA'] = df["5. volume"].rolling(20).mean()
+        self.df = df
         return self
 
     def find_pivot_simple(self, length):
@@ -408,7 +409,9 @@ class TimeSeriesPlus:
 
         # if df['20MA'][-1] < df['20MASMA'][-1]:
         #     return status
-        if df['150MA'][-1] < df['150MASMA'][-1]:
+        if '150MA' not in df.columns:
+            return status
+        elif df['150MA'][-1] < df['150MASMA'][-1]:
             return status
         # if df['100MA'][-1] < df['100MASMA'][-1]:
         #     return status
@@ -428,6 +431,7 @@ class TimeSeriesPlus:
         return status
 
     def in_uptrend(self, TRNDdays, cutoff=0.8, blind=0):
+
         return self.in_uptrend_internal(self.df, int(TRNDdays), float(cutoff), int(blind))
 
     def in_uptrendx(self, *args):
@@ -684,53 +688,73 @@ class TimeSeriesPlus:
             exit_date (str): exit date
         """
         
-        print('in get_fate')
-        print(observe_date, test_period, entry, stoploss, strategy)
+        # print('in get_fate')
+        # print(observe_date, test_period, entry, stoploss, strategy)
         
-        R = ''
+        R = 0
+        exit = ''
         exit_date = ''
         entry_price = ''
+        action_lines = []
         stoploss_price = ''
         risk = 0
         
-        # invalide trading date
-
+        # invalid trading date
         if observe_date not in df.index:
-            return R, exit_date
+            print ("observe_date is invalid; {}".format(observe_date))
+            # print ('-->', R, exit, exit_date)
+            return R, exit, exit_date
+
 
         # get holding period for loop through
         observe_date_index = df.index.get_loc(observe_date)
         onboard = df.iloc[observe_date_index + 1:]
         onboard = onboard.head(test_period)      # fixed holding period
-        observed = df.iloc[:(observe_date_index + 1)]
-        
+
         # get stop loss price
+        observed = df.iloc[:(observe_date_index + 1)]
         stoploss_price = observed.tail(stoploss)['3. low'].min()
         
         # get entry price
         if entry == 'next':
             entry_price = df['2. high'][observe_date]
-            if onboard.iloc[0]['2. high'] < entry_price:    # next price doest go up
-                return R, exit_date
+            trade_miss = False
+            if onboard.iloc[0]['2. high'] < entry_price:    # next price doesnt go up
+                trade_miss = True
+            elif onboard.iloc[0]['3. low'] > entry_price:    # next price jump over
+                trade_miss = True
+            if trade_miss:
+                # print('-->', R, exit, exit_date)
+                return R, exit, exit_date
         elif entry == 'this':
             entry_price = df['4. close'][observe_date]
-            
         risk = entry_price - stoploss_price + 0.000001
-        
-        
+
+        action_lines.append(entry_price)
+        action_lines.append(stoploss_price)
+
         # set up strategy
         profit_take = 2000000
         sticky = False
         if strategy.endswith('R'):
-            fixed_R = int(strategy.rstrip('R'))
+            fixed_R = float(strategy.rstrip('R'))
             profit_take = entry_price + risk * fixed_R
+
+            for i in range(1,10):
+                key_price = entry_price + risk * i
+                if key_price <= profit_take:
+                    action_lines.append(key_price)
+                else:
+                    break
         elif strategy == 'sticky':
             sticky = True
         
         # no trade if next day price does not go higher than anticipated entry
         # if onboard.iloc[0,:]['2. high'] < entry: return 0
         # holding period less than 2 (poor data) -> skip
-        if onboard.shape[0] < 2: return 0
+        if onboard.shape[0] < 2:
+            print ('2->', onboard.shape[0],  R, exit, exit_date)
+            return R, exit, exit_date
 
         exit = 0
         exit_date = ''
@@ -750,6 +774,7 @@ class TimeSeriesPlus:
                     dist_byR = dist // risk
                     if dist_byR > 1:
                         stoploss_price = stoploss_price + risk * (dist_byR - 1)
+                        action_lines.append(stoploss_price)
                 elif row['2. high'] > profit_take:
                     exit = profit_take
                     exit_date = date
@@ -759,22 +784,23 @@ class TimeSeriesPlus:
         if exit == 0:
             exit = onboard['4. close'][-1]
             exit_date = onboard.index[-1]
-            
-            print('exit on timeout', exit_date)    #xxx
         
-        exit_date = str(exit_date).split(' ')[0]    
+        exit_date = str(exit_date).split(' ')[0]
         
-        print(exit, entry_price)
+        # print(exit, entry_price)
         
         R = (exit - entry_price) / risk
+        R = round(R, 3)
         if abs(R) < 0.001: 
             R = 0
 
-        print  ('entry_price', 'exit', 'stoploss_price', 'risk', 'R', 'exit_date')
-        print  (entry_price, exit, stoploss_price, risk, R, exit_date)
-        print ("//")
-                    
-        return R, exit, exit_date
+        # print  ('entry_price', 'exit', 'stoploss_price', 'risk', 'R', 'exit_date')
+        # print  (entry_price, exit, stoploss_price, risk, R, exit_date)
+        # print ("//")
+        # action_lines = action_lines.insert(0, exit)
+        action_lines.append(exit)
+        action_lines_string = '#'.join([str(a) for a in action_lines])
+        return R, action_lines_string, exit_date
 
     def get_atr(self, length, forward=False):
         df = self.df.copy(deep=True)
@@ -888,17 +914,16 @@ class TimeSeriesPlus:
             ratio = average/average_background
         return ratio
 
-    def get_volume_index(self, n=10, m=30, hold = ""):
+    def get_volume_index(self, n=10, m=30, hold=""):
         """Get index for volume contraction
 
         Args:
-            n (int): lookback period for high volume day
-            m (int): period length for volume moving average
-
+            n (int): short look-back period for high volume day
+            m (int): long look-back period for volume moving average
+            hold (str): if hold equals 'h', test if price is held well above high volume days's low
         return:
             float: high volume / low volume ratio
-            string: maximum relative volume in lookback preriod and current relative volume
-            hold: if hold equals 'h', test if price hold well after high volume date
+            string: maximum relative volume in look-back period and current relative volume
         """
         ratio = 0
         df = self.df
@@ -907,12 +932,13 @@ class TimeSeriesPlus:
         # relative volume in look-back period
         df['Volume_MA'] = df['5. volume'].rolling(n).mean()
         df['relative_volume'] = df['5. volume'] / (df['Volume_MA'] + 1)
-        df['relative_volume_max'] = df['relative_volume'].rolling(n).max()
-        relative_volume_max_last = df['relative_volume_max'][-1]
+        # df['relative_volume_max'] = df['relative_volume'].rolling(n).max()
+        # relative_volume_max_last = df['relative_volume_max'][-1]
+        relative_volume_max_last = df['relative_volume'][0-n:].max()
 
         # relative volume at present day
         df['Volume_MA_long'] = df['5. volume'].rolling(m).mean()
-        relative_volume_current = df['5. volume'][-1]/(df['Volume_MA_long'][-1] + 1)
+        relative_volume_current = min(df['5. volume'][-1]/(df['Volume_MA_long'][-1] + 1), df['relative_volume'][-1] )
 
         # test if price stays above the low of the highest volume date
         hold_well = False
@@ -926,12 +952,13 @@ class TimeSeriesPlus:
                 if hold == 'h':
                     hold_well = True
             elif hold == 'x':
-                    hold_well = True
+                hold_well = True
         else:
             hold_well = True
 
-        # calculate ratio
-        if relative_volume_max_last > 2 and 0 < relative_volume_current < 1 and hold_well:
+        # calculate ratio only if last day's relative volume is lower than average
+        #if relative_volume_max_last > 2 and 0 < relative_volume_current <= 1 and hold_well:
+        if 0 < relative_volume_current <= 1 and hold_well:
             ratio = relative_volume_max_last/relative_volume_current
             #ratio = relative_volume_current
         return ratio, f"{relative_volume_max_last} {relative_volume_current}"
@@ -1055,7 +1082,14 @@ class TimeSeriesPlus:
 
         sub = df.copy(deep=True).tail(period)
         sub['std_error'] = (sub['4. close'] - average) ** 2
-        std = sub['std_error'].rolling(period).mean()[-1]/average
+        sub['diff_close'] = (sub['4. close'] - average).abs()
+        sub['diff_open'] = (sub['1. open'] - average).abs()
+        sub['diff_abs'] = np.where(sub['diff_close'] > sub['diff_open'], sub['diff_close'], sub['diff_open'])
+
+        sub['trading_range'] = sub['1. open'] - sub['4. close']
+        sub['trading_range_abs'] = sub['trading_range'].abs()
+
+        std = sub['diff_abs'].rolling(period).mean()[-1]/sub['trading_range_abs'].rolling(period).median()[-1]
 
         # print(sub['std_error'])
         # print(std)

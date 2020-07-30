@@ -87,6 +87,8 @@ def chart_securities(file, **kwargs):
     tickers.work()
     df = tickers.get_attribute_table()
 
+    df.to_csv("temp.PL.txt", sep="\t")
+
     # summarize profit and loss
     if 'PL' in df.columns:
         series = df['PL']
@@ -103,8 +105,9 @@ def chart_securities(file, **kwargs):
             elif pl < 0 :
                 loss += 1
             r_total += pl
-        print(df['PL'])
-        print ("Profit&Loss\t{}\t{}\t{}\t{}\t{}".format(win, loss, even, (win+loss+even), r_total))
+
+        # print(df['PL'])
+        print ("Profit&Loss\t{}\t{}\t{}\t{}\t{}".format(win, loss, even, (win+loss+even), round(r_total,3)))
 
 
     # check for SPY data and add it to dataframe as background
@@ -113,7 +116,7 @@ def chart_securities(file, **kwargs):
 
     # loop through filtered symbol table and collect securities
     securities = {}
-    count = 1000
+    count = 100000
     #securities_filtered = pd.DataFrame()
 
     # loop through security list, create Security instances
@@ -169,7 +172,12 @@ def chart_securities(file, **kwargs):
 
             mykey = f"{sticker}: {note} RSI-{rsi}"
             if 'PL' in row:
-                mykey = mykey + ' ' + str(row["PL"])[:5] + 'r'
+                r = row['PL']
+                if r > 0:
+                    r = '+' + str(round(r,1))
+                else:
+                    r = str(round(r,1))
+                mykey = mykey + ' ' + r + 'risk'
             securities[mykey] = mysecurity
 
     # write processed dataframe to local file
@@ -183,7 +191,7 @@ def chart_securities(file, **kwargs):
 
         if num_to_plot:
             security_batch = {}
-            c = 1000
+            c = 10000
             for key, security in securities.items():
                 c += 1
                 security_batch[key] = security

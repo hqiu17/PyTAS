@@ -36,18 +36,18 @@ class AttributeTable:
     def __init__(self, attribute_table, data_dir, kwargs):
         self._attribute_table = attribute_table.copy(deep=True)
         self.data_dir = data_dir
-        # self.file_name = file_name
-        # self.kwargs_backup = kwargs
         self.kwargs = kwargs
-        # self.new_file_name = ""
         self.backtest_date = ''
         self.backtest_date_extension = ''
+        self.backtest_strategy = '2R'
         self.check_date = ''
         self.sts_daily = {}
         self.sts_daily_plot = {}
+
+        # warming up steps
         self.basic_processing()
-        self.make_header()
         self.backtest()
+        self.make_header()
         self.read_timeseries()
 
 
@@ -56,6 +56,8 @@ class AttributeTable:
             self._attribute_table["Date Sold"] = self.check_date
         if self.backtest_date:
             self._attribute_table["Date Added"] = self.backtest_date
+
+        # print('get_attribute_table', self._attribute_table.shape)
         return self._attribute_table
 
     def get_dict_timeseries(self):
@@ -133,7 +135,6 @@ class AttributeTable:
             if "Next EPS Report Date " in row:
                 annot = annot + "eday" + str(row["Next EPS Report Date "])
             df.loc[sticker, "annotation"] = annot
-
         self._attribute_table = df
 
     def df_rename_columns(self, df):
@@ -152,6 +153,8 @@ class AttributeTable:
         return df
 
     def backtest(self):
+        """Set up backtest parameters if keyword argument is given
+        """
         extension = ''
         backtest_date = ''
         strategy = ''
@@ -160,10 +163,10 @@ class AttributeTable:
             if ',' in arg:
                 backtest_date, extension, strategy = arg.split(',')
                 print ("backtest_date {}; extension {} strategy {}".format(backtest_date, extension, strategy))
-                self.backtest_date_extension = extension
+                self.backtest_date_extension = int(extension)
                 self.backtest_strategy = strategy
                 self._attribute_table["PL"] = 0
-                self._attribute_table["exit Price"] = 0
+                self._attribute_table["exit Price"] = ''
                 self._attribute_table["Date sold"] = ''
             else:
                 backtest_date = arg
@@ -176,13 +179,11 @@ class AttributeTable:
         """
         dict_sts = {}
         dict_sts_plot = {}
+        backtest_date_invalid = 0
         for symbol, row in self._attribute_table.iterrows():
-        
-            # print(symbol)   #xxx
-        
             file = self.data_dir + "/" + symbol + ".txt"
             if os.path.exists(file):
-                # read in data
+                # read in data into dataframe
                 try:
                     price = pd.read_csv(file, sep="\t", parse_dates=['date'], index_col=['date'])
                 except ValueError:
@@ -199,92 +200,75 @@ class AttributeTable:
                 if price.shape[0] < minimal_rows and symbol in self._attribute_table.index:
                     self._attribute_table = self._attribute_table.drop(symbol, axis=0)
                     continue
-                
-                # handl backtest date
-                backtest_date_found = True
+                price_for_test = price
+
+                # handle backtest date
+                # 1) guess if backtest date is valid
+                # 2) add trading outcome to attribute_table
+                # 3) load time series data for display purpose
                 if self.backtest_date:
                     backtest_date = self.backtest_date
 
+                    # test backtest date
+                    # if date is missing in 10 consecutive symbols, the date is deemed invalid
+                    if backtest_date_invalid >= 10:
+                        print(f"Backtest date is likely not a trading day: {backtest_date}")
+                        exit(0)
+
+                    if backtest_date not in price.index:
+                        backtest_date_invalid += 1
+                        self._attribute_table = self._attribute_table.drop(symbol, axis=0)
+                        continue
+                    else:
+                        backtest_date_invalid = 0
+
+                    # Given valid backtest date, do trade
                     if backtest_date in price.index:
-                        # assign backtest date
+                        # assign back test dates
                         self._attribute_table.loc[symbol, 'Date Added'] = backtest_date
-
                         loci = price.index.get_loc(backtest_date) + 1
+                        price_for_test = price[0:loci]
 
-                        try:
-                            extension = int(self.backtest_date_extension)
-                        except:
+                        if self.backtest_date_extension:
                             extension = self.backtest_date_extension
-
-                        if isinstance(extension, str):
-                            # r, date = TimeSeriesPlus.get_fate(price, backtest_date, extension, 'this', 5, 'sticky')
-                            pass
-                        elif isinstance(extension, int):
                             loci_check = loci + 1 + extension
                             length = price.shape[0]
                             if loci_check > length-1:
                                 loci_check = -1
                             price_plot = price[0:loci_check]
-                            price_plot = TimeSeriesPlus(price_plot).sma_multiple().df
-                            dict_sts_plot[symbol] = TimeSeriesPlus(price_plot)
-#                             self.check_date = str(price.index[loci_check]).split(' ')[0]
+                            dict_sts_plot[symbol] = TimeSeriesPlus(price_plot).sma_multiple()
+                            # price_plot = TimeSeriesPlus(price_plot).sma_multiple().df
+                            # dict_sts_plot[symbol] = TimeSeriesPlus(price_plot)
+                            # self.check_date = str(price.index[loci_check]).split(' ')[0]
 
-                            r, exit_price, date = TimeSeriesPlus.get_fate(
+                            # print(backtest_date, extension, 'this', 5, self.backtest_strategy)
+
+                            r, key_prices, date = TimeSeriesPlus.get_fate(
                                 'xxx', price, backtest_date, extension, 'this', 5, self.backtest_strategy)
                             self._attribute_table.loc[symbol, 'PL'] = r
-                            self._attribute_table.loc[symbol, 'exit Price'] = exit_price
+                            self._attribute_table.loc[symbol, 'exit Price'] = key_prices
                             self._attribute_table.loc[symbol, 'Date Sold'] = date
-                            
-                            # test xxx
-                            if self.kwargs["weekly"]:
-                                try:
-                                    price_plot = TimeSeriesPlus(price_plot).get_weekly()
-                                except:
-                                    print("x-> Error while weekly-data transformation "
-                                          "for {}; {}".format(symbol, sys.exc_info()[0]))
-                            elif self.kwargs["monthly"]:
-                                try:
-                                    price_plot = TimeSeriesPlus(price_plot).get_monthly()
-                                except:
-                                    print("x-> Error while monthly-data transformation "
-                                          "for {}; {}".format(symbol, sys.exc_info()[0]))
-
-
-                        price = price[0:loci]
-                    else:
-                        self._attribute_table = self._attribute_table.drop(symbol, axis=0)
-                        backtest_date_found = False
-                        continue
-
-                if not backtest_date_found:
-                    print (self.backtest_date, " is not found in timeseries data")
 
                 ### test xxx
                 if self.kwargs["weekly"]:
                     try:
-                        price = TimeSeriesPlus(price).get_weekly()
+                        price_for_test = TimeSeriesPlus(price_for_test).get_weekly()
                     except:
                         print("x-> Error while weekly-data transformation "
                               "for {}; {}".format(symbol, sys.exc_info()[0]))
                 elif self.kwargs["monthly"]:
                     try:
-                        price = TimeSeriesPlus(price).get_monthly()
+                        price_for_test = TimeSeriesPlus(price_for_test).get_monthly()
                     except:
                         print("x-> Error while monthly-data transformation "
                               "for {}; {}".format(symbol, sys.exc_info()[0]))
-
-                price = TimeSeriesPlus(price).sma_multiple().df
-                price = price.sort_index(axis=0)
-                dict_sts[symbol] = TimeSeriesPlus(price)
-
-
+                dict_sts[symbol] = TimeSeriesPlus(price_for_test)
             else:
                 self._attribute_table = self._attribute_table.drop(symbol)
-        print ("readtimeseries self.backtest_date: ", self.backtest_date)
 
         self.sts_daily = dict_sts
         self.sts_daily_plot = dict_sts_plot
-
+        # print('read_timeseries2', self._attribute_table.shape)
 
     def work(self):
         """Filter and sort securities based on keyword arguments
@@ -453,8 +437,8 @@ class AttributeTable:
                 if len(args)>2:
                     hold_up = args[2]
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"], details = self.sts_daily[symbol].get_volume_index(length, hold=hold_up)
-                    print(symbol, details)
+                    self._attribute_table.loc[symbol, "Sort"], details = \
+                        self.sts_daily[symbol].get_volume_index(length, hold=hold_up)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > ratio]
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
                 print("# {:>5} symbols meet filter_surging_volume".format(len(self._attribute_table)))

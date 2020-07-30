@@ -151,7 +151,10 @@ def candlestick_gradient_width(df, ratio=10):
         right_edge += width_bar
         # price open, close, high, an low information
         price_range = abs(data["2. high"] - data["3. low"])
-        body_low = np.minimum(data["1. open"], data["4. close"])
+        try:
+            body_low = np.minimum(data["1. open"], data["4. close"])
+        except:
+            body_low = ''
         body_range = abs((data["1. open"] - data["4. close"]))
         if body_range < 0.01:
             body_range = 0.01
@@ -159,7 +162,9 @@ def candlestick_gradient_width(df, ratio=10):
             price_range = 0.01
         # set color
         color = "red"
-        if data["1. open"] == body_low:
+        if not body_low:
+            color = 'yellow'
+        elif data["1. open"] == body_low:
             color = "green"
 
         bar_width.append(width_bar)
@@ -289,20 +294,26 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
     color = 'yellow'
     PL_cololred = False
     if exit_price:
-        y_sell = exit_price
+        prices = [float(a) for a in exit_price.split('#')]
+        for p in prices:
+            p = float(p)
+            plt.axhline(y=p, color="grey", linewidth=1)
+        y_buy  = prices[0]
+        y_sell = prices[-1]
+
     if y_buy and y_sell:
         if y_buy * 0.97 >= y_sell:
             color = 'red'
-            print('PL2color', y_buy, y_sell, 'redLoss')
+            # print('PL2color', y_buy, y_sell, 'redLoss')
             plt.axhspan(y_sell, y_buy, color=color, alpha=0.3)
             PL_cololred = True
         elif y_buy * 1.03 < y_sell:
             color = 'green'
-            print('PL2color', y_buy, y_sell, color)
+            # print('PL2color', y_buy, y_sell, color)
             plt.axhspan(y_buy, y_sell, color=color, alpha=0.3)
             PL_cololred = True
         else:
-            print('PL2color', y_buy, y_sell, color)
+            # print('PL2color', y_buy, y_sell, color)
             plt.axhspan(y_buy, y_sell, color=color, alpha=0.3)
             PL_cololred = True
 
@@ -645,7 +656,7 @@ def up(pandas_series):
         percentage = 0
         if start:
             percentage = ((end - start) / start) * 100
-            precentage = round(Decimal(percentage), 2)
+            percentage = round(percentage, 1)
         a = f"{percentage}%"
     return a
 
