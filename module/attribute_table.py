@@ -50,7 +50,6 @@ class AttributeTable:
         self.make_header()
         self.read_timeseries()
 
-
     def get_attribute_table(self):
         if self.check_date:
             self._attribute_table["Date Sold"] = self.check_date
@@ -180,7 +179,27 @@ class AttributeTable:
         dict_sts = {}
         dict_sts_plot = {}
         backtest_date_invalid = 0
+        minimal_volume = 100000
         for symbol, row in self._attribute_table.iterrows():
+
+            # remove symbol associated with defined sectors
+            removed_sector = ""
+            if self.kwargs["remove_sector"]:
+                arg = self.kwargs["remove_sector"]
+                removed_sector = arg
+                args = arg.split(",")
+                remove = False
+                if 'Sector' in row:
+                    sector = row['Sector']
+                    for a in args:
+                        if a in sector:
+                            remove = True
+                            break
+                if remove:
+                    self._attribute_table = self._attribute_table.drop(symbol)
+                    continue
+
+            # read in data files
             file = self.data_dir + "/" + symbol + ".txt"
             if os.path.exists(file):
                 # read in data into dataframe
@@ -194,19 +213,21 @@ class AttributeTable:
                     print("x-> Error while reading historical data for {}\t error: {}".format(symbol, e))
                     self._attribute_table = self._attribute_table.drop(symbol)
 
-                # remove rows with NA and remove df with <60 rows
+                # remove rows with NA, remove df with insufficient rows or with low trading volume
                 price.replace('', np.nan, inplace=True)
                 price = price.dropna(axis='index')
-                if price.shape[0] < minimal_rows and symbol in self._attribute_table.index:
-                    self._attribute_table = self._attribute_table.drop(symbol, axis=0)
-                    continue
+                if symbol in self._attribute_table.index:
+                    if price.shape[0] < minimal_rows or price["5. volume"][-1] < minimal_volume:
+                        self._attribute_table = self._attribute_table.drop(symbol, axis=0)
+                        continue
+
                 price_for_test = price
 
-                # handle backtest date
-                # 1) guess if backtest date is valid
-                # 2) add trading outcome to attribute_table
-                # 3) load time series data for display purpose
                 if self.backtest_date:
+                    # handle backtest date
+                    # 1) guess if backtest date is valid
+                    # 2) add trading outcome to attribute_table
+                    # 3) load time series data for display purpose
                     backtest_date = self.backtest_date
 
                     # test backtest date
@@ -229,6 +250,7 @@ class AttributeTable:
                         loci = price.index.get_loc(backtest_date) + 1
                         price_for_test = price[0:loci]
 
+
                         if self.backtest_date_extension:
                             extension = self.backtest_date_extension
                             loci_check = loci + 1 + extension
@@ -237,38 +259,67 @@ class AttributeTable:
                                 loci_check = -1
                             price_plot = price[0:loci_check]
                             dict_sts_plot[symbol] = TimeSeriesPlus(price_plot).sma_multiple()
-                            # price_plot = TimeSeriesPlus(price_plot).sma_multiple().df
-                            # dict_sts_plot[symbol] = TimeSeriesPlus(price_plot)
-                            # self.check_date = str(price.index[loci_check]).split(' ')[0]
-
-                            # print(backtest_date, extension, 'this', 5, self.backtest_strategy)
 
                             r, key_prices, date = TimeSeriesPlus.get_fate(
-                                'xxx', price, backtest_date, extension, 'this', 5, self.backtest_strategy)
-                            self._attribute_table.loc[symbol, 'PL'] = r
-                            self._attribute_table.loc[symbol, 'exit Price'] = key_prices
-                            self._attribute_table.loc[symbol, 'Date Sold'] = date
+                                'xxx', price, backtest_date, extension, 'next', 5, self.backtest_strategy)
+                            if r == 'missing':
+                                self._attribute_table = self._attribute_table.drop(symbol)
+                            else:
+                                self._attribute_table.loc[symbol, 'PL'] = r
+                                self._attribute_table.loc[symbol, 'exit Price'] = key_prices
+                                self._attribute_table.loc[symbol, 'Date Sold'] = date
 
-                ### test xxx
-                if self.kwargs["weekly"]:
-                    try:
-                        price_for_test = TimeSeriesPlus(price_for_test).get_weekly()
-                    except:
-                        print("x-> Error while weekly-data transformation "
-                              "for {}; {}".format(symbol, sys.exc_info()[0]))
-                elif self.kwargs["monthly"]:
-                    try:
-                        price_for_test = TimeSeriesPlus(price_for_test).get_monthly()
-                    except:
-                        print("x-> Error while monthly-data transformation "
-                              "for {}; {}".format(symbol, sys.exc_info()[0]))
+                if self.kwargs["time_scale"]:
+                    arg = self.kwargs["time_scale"]
+                    scale = ""
+                    mode = ""
+                    if ',' in arg:
+                        scale, mode = arg.split(",")
+                    else:
+                        scale = arg
+
+                    if mode == "c": # =chartOnly
+                        if scale == "week":
+                            price_scaled = TimeSeriesPlus(price_for_test).get_weekly()
+                            dict_sts_plot[symbol] = TimeSeriesPlus(price_scaled)
+                        if scale == "month":
+                            price_scaled = TimeSeriesPlus(price_for_test).get_monthly()
+                            dict_sts_plot[symbol] = TimeSeriesPlus(price_scaled)
+                    else:
+                        if scale == "week":
+                            price_for_test = TimeSeriesPlus(price_for_test).get_weekly()
+                        if scale == "month":
+                            price_for_test = TimeSeriesPlus(price_for_test).get_monthly()
+
                 dict_sts[symbol] = TimeSeriesPlus(price_for_test)
             else:
                 self._attribute_table = self._attribute_table.drop(symbol)
 
+        # # read SPY as benchmark
+        # ref = self.data_dir + "/" + 'SPY' + ".txt"
+        # if os.path.exists(ref):
+        #     try:
+        #         price = pd.read_csv(ref, sep="\t", parse_dates=['date'], index_col=['date'])
+        #     except ValueError:
+        #         price = pd.read_csv(ref, sep="\t", parse_dates=['Date'], index_col=['Date'])
+        #         price = self.df_rename_columns(price)
+        #     except:
+        #         e = sys.exc_info()[0]
+        #         print("x-> Error while reading historical data for {}\t error: {}".format(ref, e))
+        #
+        #     dict_sts['SPY'] = TimeSeriesPlus(price)
+
+        # Report
+        if removed_sector:
+            print("# {:>5} symbols have valid time series data "
+                  "(length>{}, volume>{} and not associated with sector(s) {}".format(
+                len(self._attribute_table), minimal_rows, minimal_volume, removed_sector))
+        else:
+            print("# {:>5} symbols have valid time series data (length>{} and volume>{})".format(
+                len(self._attribute_table), minimal_rows, minimal_volume))
+
         self.sts_daily = dict_sts
         self.sts_daily_plot = dict_sts_plot
-        # print('read_timeseries2', self._attribute_table.shape)
 
     def work(self):
         """Filter and sort securities based on keyword arguments
@@ -459,6 +510,21 @@ class AttributeTable:
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
                 print("# {:>5} symbols meet exploding_surging_volume".format(len(self._attribute_table)))
 
+            if self.kwargs['filter_consolidation_p']:
+                args = self.kwargs['filter_consolidation_p']
+                (length, cutoff) = args.split(',')
+                length = int (length)
+                cutoff = float(cutoff)
+                for symbol in self._attribute_table.index:
+                    sort_value = 0
+                    if self.sts_daily[symbol].get_zigzag_score(length) > 0:
+                        sort_value = self.sts_daily[symbol].get_zigzag_score(length)
+                    self._attribute_table.loc[symbol, "Sort"] = sort_value
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > cutoff]
+                self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
+                print("# {:>5} symbols meet filter_consolidation_p criteria".format(len(self._attribute_table)))
+                print(self._attribute_table['Sort']) #xxx
+
             # method filter based on stochastic signal
             if self.kwargs["filter_stochastic_sgl"]:
                 # filter for oversold (d < cutoff) tickers with stochastic K > D and
@@ -468,9 +534,9 @@ class AttributeTable:
                 #               stochastic d cutoff,
                 #               k>d ('all') or k just cross d up ('crs' or any string)
 
-                filter_stochastic_sgl = self.kwargs["filter_stochastic_sgl"]
+                arg = self.kwargs["filter_stochastic_sgl"]
                 try:
-                    (n, m, cutoff, mode) = filter_stochastic_sgl.split(',')
+                    (n, m, cutoff, mode) = arg.split(',')
                     n = int(n)
                     m = int(m)
                     cutoff = float(cutoff)
@@ -490,9 +556,19 @@ class AttributeTable:
                         status = False
                     if not status:
                         self._attribute_table.drop(symbol, inplace=True)
-                print("# {:>5} symbols meet stochastic criteria".format(len(self._attribute_table)))
+                print("# {:>5} symbols meet stochastic criteria {}".format(len(self._attribute_table)), )
 
             if self.kwargs["filter_parallel_ema"]:
+                # Query EMA sandwiched between short and long EMAs for recent period
+                #
+                # Args:
+                #   query (int): length in days to define query EMA.
+                #   short (int): length in days to define short EMA.
+                #   long (int): length in days to define long EMA.
+                #   days (int): period to assess if middle EMA is sandwich between short/long EMAs.
+                #       if not provided, assess only the last for EMA formation
+                #   ratio (int): minimal percentage of days meeting the EMA formation
+
                 args = self.kwargs["filter_parallel_ema"]
                 array = args.split(',')
                 array2 = []
@@ -510,6 +586,32 @@ class AttributeTable:
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
 
                 print("# {:>5} symbols meet filter_parallel_ema criteria {}".format(len(self._attribute_table), args))
+
+            if self.kwargs["filter_ema_3layers"]:
+                args = self.kwargs["filter_ema_3layers"]
+                array = args.split(',')
+                days = 0
+                cutoff = 0.85
+                if len(array) == 3:
+                    try:
+                        (query, short, long) = list(map(int, array))
+                    except ValueError:
+                        raise
+                elif len(array) == 5:
+                    try:
+                        (query, short, long, days) = list(map(int, array[:4]))
+                        cutoff = float(array[-1])
+                    except ValueError:
+                        raise
+                else:
+                    print("Invalid argument {args}")
+
+                self._attribute_table["Sort"] = False
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].ema_3layers(query, short, long,
+                                                                                                   days, cutoff)
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
+                print("# {:>5} symbols meet filter_hit_ema_support {}".format(len(self._attribute_table), args))
 
             if self.kwargs["filter_hit_ema_support"]:
                 args = self.kwargs["filter_hit_ema_support"]
@@ -561,14 +663,6 @@ class AttributeTable:
                 print("# {:>5} symbols meet bollinger band distance criteria {}".
                       format(len(self._attribute_table), filter_bbdistance))
 
-            if self.kwargs["sort_performance"]:
-                arg = self.kwargs["sort_performance"]
-
-                self._attribute_table["Sort"] = 0
-                for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_latest_performance(
-                        arg)
-                self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
 
             if self.kwargs["sort_rsi_std"]:
                 arg = self.kwargs["sort_rsi_std"]
@@ -725,3 +819,48 @@ class AttributeTable:
                 self._attribute_table["Date Added"] = reference
                 if subject.count('-') == 2:
                     self._attribute_table["Date Sold"] = subject
+
+            if self.kwargs["sort_performance"]:
+                arg = self.kwargs["sort_performance"]
+                days = 0
+                ref = ''
+                ref_performance = 0
+                cut = -1
+                if ',' in arg:
+                    args = arg.split(",")
+                    days = int(args[0])
+                    cut = float(args[1])
+                    if len(args) == 3:
+                        ref = args[2]
+                else:
+                    try:
+                        days = int(arg)
+                    except:
+                        print("Invalid sort_performance argument: {}".format(arg))
+                        exit(0)
+
+                if ref:
+                    try:
+                        ref_performance = self.sts_daily[ref].get_latest_performance(days)
+                        print("spy", ref_performance)
+                    except:
+                        print("Error in getting performance data for {}".format(ref))
+                        exit(0)
+
+                self._attribute_table["Sort"] = 0
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] = \
+                        self.sts_daily[symbol].get_latest_performance(days, ref_performance)
+
+                self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
+                if -1 < cut < 10:
+                    self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] >= cut]
+                # get symbols with top sort scores ???
+                elif cut > 100:
+                    cut = int (cut/100)
+                    self._attribute_table = self._attribute_table.head(cut)
+
+                print("# {:>5} symbols meet sort_performance criteria {}".
+                      format(len(self._attribute_table), arg))
+
+                # print( self._attribute_table["Sort"] )

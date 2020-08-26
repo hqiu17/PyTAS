@@ -30,6 +30,11 @@ def get_parser():
                         default=False,
                         help=": analyze using monthly data",
                         action='store_true')
+    parser.add_argument("-ts", "--time_scale",
+                        type=str, default='',
+                        help=": specify time scale such as weekly or monthly (eg, week,c: weekly"
+                             " transformation for charting only)"
+                        )
     parser.add_argument("-wc", "--weekly_chart",
                         default=False,
                         help=": chart using weekly data",
@@ -38,8 +43,12 @@ def get_parser():
                         default=False,
                         help=": plot volumne data",
                         action='store_true')
-            
-                        
+    parser.add_argument("-rms", "--remove_sector",
+                        type=str, default='',
+                        help=": sectors to be removed, e.g., Medical,Oil",
+                        )
+
+
     # FILTERING
     parser.add_argument("-cvg", "--vgm" , default=False, action='store_true',
                         help=": set filter on for VGM")
@@ -79,6 +88,11 @@ def get_parser():
                         help=": filter for high volume relative to its SMA value, eg, 10")
     parser.add_argument("-fprc", "--filter_price", type=str, default="",
                         help=": filter for last closing price within defined range, eg, 20,500")
+    parser.add_argument("-fcsd", "--filter_consolidation_p", type=str, default="",
+                        help=": filter for consolidation score for defined most recent period, eg, 30,0.1")
+    parser.add_argument("-fema3", "--filter_ema_3layers", type=str, default="",
+                        help=": filter for query EMA sandwiched between two defined EMAs (eg, 2,20,100) "
+                             "for a recent period (eg, 2,20,100,20,0.8)")
 
 
     # SORT
@@ -96,8 +110,8 @@ def get_parser():
                         help=": sort by ratio of price down relative to reference date")
     parser.add_argument("-scr", "--sort_change_to_ref", type=str, default="",
                         help=": sort by price change given reference date(s), eg 2019-10-01,2019-10-010")
-    parser.add_argument("-spfm", "--sort_performance", type=int, default=0,
-                        help=": sort by ratio of price down relative to reference date")
+    parser.add_argument("-spfm", "--sort_performance", type=str, default=0,
+                        help=": sort by relative price change in defined recent period, eg, 20 or 20,SPY")
     parser.add_argument("-smd", "--sort_ema_distance", type=int, default=0,
                         help=": sort by last close to SMA distance")
     parser.add_argument("-sbd", "--filter_bbdistance", type=str, default="",

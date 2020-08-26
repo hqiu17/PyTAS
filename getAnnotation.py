@@ -134,6 +134,7 @@ if __name__ == "__main__":
             data = data.set_index("Symbol")
         else:
             print(f"No 'Symbol' column found in database file {data_file}")
+            print(data.columns)
             sys.exit(1)
 
     # loop through query files, data retrieval and write output file

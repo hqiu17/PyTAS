@@ -9,8 +9,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from decimal import Decimal
 from matplotlib.font_manager import FontProperties
+from module.time_series_plus import TimeSeriesPlus
 
-moving_average_parameters = [3, 10, 20, 50, 100, 150, 200]
+moving_average_parameters = [2, 10, 20, 50, 100, 200]
 
 
 class Security:
@@ -30,6 +31,7 @@ class Security:
         self.annotation = ""
         self.sortvalue = ""
         self.exit_price = ""
+        self.profit_loss = ""
 
     def set_date_added(self, date):
         self.date_added = date
@@ -51,6 +53,9 @@ class Security:
 
     def set_sortvalue(self, sortvalue):
         self.sortvalue = sortvalue
+
+    def set_profit_loss(self, profit_loss):
+        self.profit_loss = profit_loss
 
     def get_price(self):
         return self.df.copy(deep=True)
@@ -202,14 +207,16 @@ def date_to_xy(date, df):
     y = df.iloc[x]['4. close']
     return x, y
 
+
 def date_to_crosshair(date):
     pass
+
 
 def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
                        date_added="", date_sold="", exit_price='',
                        industry="",
                        annotation="",
-                       sort=""):
+                       sort="", pl=0):
     redraw = 0
     # print (df0)
 
@@ -302,12 +309,13 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
         y_sell = prices[-1]
 
     if y_buy and y_sell:
-        if y_buy * 0.97 >= y_sell:
+        # if y_buy * 0.97 >= y_sell:
+        if pl < 0:    #xxx
             color = 'red'
             # print('PL2color', y_buy, y_sell, 'redLoss')
             plt.axhspan(y_sell, y_buy, color=color, alpha=0.3)
             PL_cololred = True
-        elif y_buy * 1.03 < y_sell:
+        elif pl > 0:
             color = 'green'
             # print('PL2color', y_buy, y_sell, color)
             plt.axhspan(y_buy, y_sell, color=color, alpha=0.3)
@@ -316,7 +324,6 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
             # print('PL2color', y_buy, y_sell, color)
             plt.axhspan(y_buy, y_sell, color=color, alpha=0.3)
             PL_cololred = True
-
 
     # draw horizontal lines for last day's low and close
     if not PL_cololred:
@@ -349,15 +356,17 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
         # make trend lines and bollinger band lighter
         alpha = alpha/3
 
-    # plot SMA
+    # plot SMA and moving average of SMA
     if sample_size > 50:
         for days in moving_average_parameters[1:]:
             MA = str(days) + "MA"
             if MA in df:
                 df[MA].plot(alpha=alpha/2)
-            MA = str(days) + "MASMA"
-            if MA in df:
-                df[MA].plot(dashes=[2,2], color='grey', alpha=alpha/2)
+
+            # moving average of SMA
+            # MA = str(days) + "MASMA"
+            # if MA in df:
+            #     df[MA].plot(dashes=[2,2], color='grey', alpha=alpha/2)
 
         if sample_size <= 120:
             if 'BB20u' in df and 'BB20d' in df:
@@ -512,7 +521,7 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
             color = "white"
             facecolor = "gray"
         sort = sort * 100
-        sort = sort if sort >= 0.001 else '0.00000'
+        sort = sort if abs(sort) >= 0.001 else '0.00000'
         plt.gca().text(
             fig_xmin + fig_xmax * 0.005,
             fig_ymax - (fig_ymax - fig_ymin) * y_position,
@@ -554,9 +563,13 @@ def draw_many_candlesticks(securities,
     if ',' in dayspan:
         dualscale = True
         num_col = num_col * 2
-        spans = list(map(int, dayspan.split(',')))
-        dayspan = spans[0]
-        dayspan2 = spans[1]
+
+        spans = dayspan.split(',')
+        dayspan = int(spans[0])
+        try:
+            dayspan2 = int(spans[1])
+        except:
+            dayspan2 = spans[1]
     else:
         dayspan = int(dayspan)
 
@@ -602,7 +615,8 @@ def draw_many_candlesticks(securities,
                                     mysecurity.get_exit_price(),
                                     mysecurity.get_industry(),
                                     mysecurity.get_annotation(),
-                                    mysecurity.get_sortvalue()
+                                    mysecurity.get_sortvalue(),
+                                    mysecurity.profit_loss
                                     )
 
         if (redraw):
@@ -612,10 +626,19 @@ def draw_many_candlesticks(securities,
             pos += 1
             ax = plt.subplot(num_row, num_col, transposed_pos[pos - 1])
             ax.yaxis.tick_right()
-            # print ("#2", ticker, num_row, num_col, pos-1)
 
-            df = add_moving_averages(df_copy)
-            df = candlestick_gradient_width(df.tail(int(dayspan2)), widthgradient)
+            # daily scale but different length
+            if isinstance(dayspan2, int):
+                df = add_moving_averages(df_copy)
+                df = candlestick_gradient_width(df.tail(dayspan), widthgradient)
+            # weekly scale
+            elif dayspan2 == "w":
+                df = df_copy.copy(deep=True)
+                df = candlestick_gradient_width(TimeSeriesPlus(df).get_weekly().tail(dayspan), widthgradient)
+            elif dayspan2 == "m":
+                df = df_copy.copy(deep=True)
+                df = candlestick_gradient_width(TimeSeriesPlus(df).get_monthly().tail(dayspan), widthgradient)
+
             redraw = draw_a_candlestick(ax, df, ticker, 3,
                                         mysecurity.get_date_added(),
                                         mysecurity.get_date_sold(),

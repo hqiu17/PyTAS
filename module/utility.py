@@ -158,22 +158,19 @@ def get_output_filename(infile, **kwargs):
         file_name = file_name + ".sEmaDist" + str(kwargs["sort_ema_distance"])
     if kwargs["sort_brokerrecomm"]:
         file_name = file_name + ".sbr"
-    if kwargs["sort_performance"] > 0:
-        file_name = file_name + ".sPfm" + str(int(kwargs["sort_performance"]))
+    if kwargs["sort_performance"]:
+        file_name = file_name + ".sPfm" + kwargs["sort_performance"].replace(',','_')
     if kwargs["sort_industry"]:
         file_name = file_name + ".sInd"
     if ',' in kwargs["sort_sink"]:
         file_name = file_name + ".ssk" + kwargs["sort_sink"].replace(',', '_')
     if kwargs["sort_rsi_std"]:
         file_name = file_name + ".sRs" + kwargs["sort_rsi_std"].replace(',', '_')
-
-
+    if kwargs["remove_sector"]:
+        file_name = file_name + ".fRm" + kwargs["remove_sector"].replace(',', '')
 
     if kwargs["sort_ema_attraction"]:
         file_name = file_name + ".sEa" + kwargs["sort_ema_attraction"].replace(',', '_')
-
-
-
 
     if ',' in kwargs["sort_change_to_ref"]:
         file_name = file_name + ".sChgRef" + kwargs["sort_change_to_ref"].replace(',', '_')
@@ -207,13 +204,15 @@ def get_output_filename(infile, **kwargs):
         file_name = file_name + ".fEvl" + kwargs["filter_exploding_volume"].replace(',', '-')
     if kwargs["filter_price"]:
         file_name = file_name + ".fPrc" + kwargs["filter_price"].replace(',', '-')
-
-
+    if kwargs["filter_consolidation_p"]:
+        file_name = file_name + ".fcsd" + kwargs["filter_consolidation_p"].replace(',', '-')
+    if kwargs["filter_ema_3layers"]:
+        file_name = file_name + ".fEma3_" + kwargs["filter_ema_3layers"].replace(',', '-')
 
     if kwargs["weekly"]:
         file_name = file_name + ".weekly"
-    if kwargs["monthly"]:
-        file_name = file_name + ".monthly"
+    if kwargs["time_scale"]:
+        file_name = file_name + "." + kwargs["time_scale"].replace(',', '_')
     if kwargs["weekly_chart"]:
         file_name = file_name + ".wkch"
 
@@ -229,3 +228,15 @@ def get_output_filename(infile, **kwargs):
 #             if max > data_max: data_max = max
 #             if min < data_min: data_min = min
 
+def date_to_index(date, series):
+    date_close = pd.to_datetime(series).copy(deep=True)
+    date_series = pd.Series(date, index=series.index)
+    date_series = pd.to_datetime(date_series).copy(deep=True)
+    difference = (date_close - date_series).dt.days
+    daysAfterAddtion = difference > 0
+
+    myseries = difference.copy(deep=True)
+    myseries[daysAfterAddtion] = -200
+    index_zacks = myseries.values.argmax()
+    return index_zacks
+    return date_close.index[index_zacks]

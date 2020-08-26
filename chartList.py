@@ -87,6 +87,12 @@ def chart_securities(file, **kwargs):
     tickers.work()
     df = tickers.get_attribute_table()
 
+    # if not sorted, sort by symbol
+    if "Sort" in df:
+        unique_sort_value = len(df["Sort"].unique())
+        if unique_sort_value == 1:
+            df = df.sort_index()
+
     df.to_csv("temp.PL.txt", sep="\t")
 
     # summarize profit and loss
@@ -107,7 +113,12 @@ def chart_securities(file, **kwargs):
             r_total += pl
 
         # print(df['PL'])
-        print ("Profit&Loss\t{}\t{}\t{}\t{}\t{}".format(win, loss, even, (win+loss+even), round(r_total,3)))
+        total_trade = win+loss+even
+        win_rate = 'NA'
+        if total_trade >0:
+            win_rate = round(win/total_trade, 3)
+        print ("Profit&Loss\t{}\t{}\t{}\t{}\t{}\t{}".format(win, loss, even, total_trade,
+                                                            win_rate, round(r_total,3)))
 
 
     # check for SPY data and add it to dataframe as background
@@ -172,17 +183,20 @@ def chart_securities(file, **kwargs):
 
             mykey = f"{sticker}: {note} RSI-{rsi}"
             if 'PL' in row:
-                r = row['PL']
+                r = float(row['PL'])
+                mysecurity.set_profit_loss(r)
                 if r > 0:
                     r = '+' + str(round(r,1))
                 else:
                     r = str(round(r,1))
                 mykey = mykey + ' ' + r + 'risk'
+
             securities[mykey] = mysecurity
 
     # write processed dataframe to local file
     if kwargs["filterOnly"]:
         df.to_csv(file_name+".tsv", sep="\t")
+
     # plot multi-panel figure while going through a dictionary of
     # Security instances
     else:

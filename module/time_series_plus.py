@@ -1,13 +1,13 @@
 import re
 import numpy as np
 import pandas as pd
-from module.candlestick import date_to_index
-
+from module.utility import date_to_index
+from scipy.stats import chisquare
 
 class TimeSeriesPlus:
     def __init__(self, df):
         self.df = df.copy(deep=True)
-        self.ema_length = [3, 10, 20, 50, 100, 150, 200]
+        self.ema_length = [2, 3, 5, 10, 20, 50, 100, 150, 200]
         self.sma_multiple()
 
     def sma_multiple(self):
@@ -30,7 +30,7 @@ class TimeSeriesPlus:
             df['BB20d'] = df['20SMA'] - df['STD20'] * 2
             df['BB20d_SMA10'] = df['BB20d'].rolling(10).mean()
 
-            df['v5_SMA'] = df["5. volume"].rolling(5).mean()
+            df['v5_SMA'] =  df["5. volume"].rolling(5).mean()
             df['v10_SMA'] = df["5. volume"].rolling(10).mean()
             df['v15_SMA'] = df["5. volume"].rolling(15).mean()
             df['v20_SMA'] = df["5. volume"].rolling(20).mean()
@@ -149,22 +149,27 @@ class TimeSeriesPlus:
         else:
             return False
 
-    def get_latest_performance(self, period):
+    def get_latest_performance(self, period, benchmark=0):
         """ 
         Get the price change for the last time period (i.e., the lastest 5 days 
         including today)
         
         Argument:
-            period  : number of days (int) to define this period
+            period  (str): number of days (int) to define this period
+            benchmark (float): performance benchmark
         Return : 
             a float representing price change over the period
         """
+        performance = 0
         df_latest_period = self.df.tail(period)
         begin = df_latest_period["4. close"][0]
         last = df_latest_period["4. close"][-1]
-        performance = 0
+
         if begin > 0:
             performance = (last - begin) / begin
+
+        performance = performance - benchmark
+
         return performance
 
     def get_SMAdistance(self, benchmark, date=-1):
@@ -311,6 +316,10 @@ class TimeSeriesPlus:
 
         status = 0  # =0: undetermined status; =1: 1st ema above 2nd ema; =-1: 1st ema below 2nd ema
 
+
+        # sma_fast = df['4. close'].ewm(span=fast, adjust=False).mean()
+        # sma_slow = df['4. close'].ewm(span=slow, adjust=False).mean()
+
         df = dataframe.copy(deep=True)
         if vol:
             ma1_key = "v" + str(MAdays1) + "_SMA"
@@ -389,6 +398,50 @@ class TimeSeriesPlus:
                     return True
         return status
 
+    def ema_3layers(self, query=2, short=10, long=100, days=0, cut=0.8):
+        """Query EMA sandwiched between short and long EMAs for recent period
+
+        Args:
+            query (int): length in days to define query EMA.
+            short (int): length in days to define short EMA.
+            long (int): length in days to define long EMA.
+            days (int): period to assess if middle EMA is sandwich between short/long EMAs.
+                if not provided, assess only the last for EMA formation
+            ratio (int): minimal percentage of days meeting the EMA formation
+        Returns
+            boolean: test negative or positive
+        """
+        status = False
+        df = self.df.copy(deep=True)
+        ema_q = f"{query}MA"
+        ema_s = f"{short}MA"
+        ema_l = f"{long}MA"
+
+        if ema_q not in df.columns:
+            df[ema_q] = df['4. close'].ewm(span=query, adjust=False).mean()
+        if ema_s not in df.columns:
+            df[ema_s] = df['4. close'].ewm(span=short, adjust=False).mean()
+        if ema_l not in df.columns:
+            df[ema_l] = df['4. close'].ewm(span=long, adjust=False).mean()
+
+        # if no recent period (variable 'days') is defined, test the last day
+        if not days:
+            if df[ema_l][-1] < df[ema_q][-1] < df[ema_s][-1]:
+                status = True
+            return status
+
+        df['query-short'] = df[ema_q] - df[ema_s]
+        df['query-short_pass'] = np.where(df[ema_q] <= df[ema_s], 1, 0)
+        df['query-long_pass'] = np.where(df[ema_l] <= df[ema_q], 1, 0)
+        df['short-query-long'] = df['query-short_pass'] + df['query-long_pass']
+        df['pass'] = np.where(df['short-query-long'] == 2, 1, 0)
+        ratio = df.tail(days)['pass'].sum() / days
+        if ratio >= cut:
+            status = True
+
+        return status
+
+
     def in_uptrend_internal(self, dataframe, TRNDdays, cutoff, blind):
         """ 
             return status (1)  for uptrend
@@ -411,7 +464,7 @@ class TimeSeriesPlus:
         #     return status
         if '150MA' not in df.columns:
             return status
-        elif df['150MA'][-1] < df['150MASMA'][-1]:
+        elif df['200MA'][-1] < df['200MASMA'][-1]:
             return status
         # if df['100MA'][-1] < df['100MASMA'][-1]:
         #     return status
@@ -430,9 +483,29 @@ class TimeSeriesPlus:
         # print("    ", status) #%
         return status
 
-    def in_uptrend(self, TRNDdays, cutoff=0.8, blind=0):
+    def in_uptrend(self, TRNDdays, cutoff=0.8, blind=0, launch=False):
+        if launch:
+            status = 0
+            df = self.df.copy(deep=True).tail(50)
+            df['diff1_20-50'] = df['20MA'] - df['50MA']
+            df['diff1'] = np.where(df['diff1_20-50']>0, 1 , 0)
+            df['diff2_50-100'] = df['50MA'] - df['100MA']
+            df['diff2'] = np.where(df['diff2_50-100']>0, 1 , 0)
+            df['diff3_100-150'] = df['100MA'] - df['150MA']
+            df['diff3'] = np.where(df['diff3_100-150']>0, 1 , 0)
+            # df['sum'] = df['diff1'] + df['diff2'] + df['diff3']
+            # df['pass'] = np.where(df['sum'] == 3, 1, 0)
 
-        return self.in_uptrend_internal(self.df, int(TRNDdays), float(cutoff), int(blind))
+            df['sum'] = df['diff1'] + df['diff2']
+            df['pass'] = np.where(df['sum'] == 2, 1, 0)
+
+            # the first or second days since uptrend signal
+            if df['pass'][-1] == 1 and df['pass'][-5:-2].sum() == 0:
+                status = 1
+
+            return status
+        else:
+            return self.in_uptrend_internal(self.df, int(TRNDdays), float(cutoff), int(blind))
 
     def in_uptrendx(self, *args):
         TRNDdays = int(args[0])
@@ -451,6 +524,7 @@ class TimeSeriesPlus:
         # offset = pd.offsets.timedelta(days=-6)
         offset = None
         self.df = self.df.resample('W', loffset=offset).apply(logic)
+        self.sma_multiple()
 
     def to_monthly(self):
         logic = {'1. open': 'first',
@@ -680,12 +754,15 @@ class TimeSeriesPlus:
             observe_dat (str): date when buy signal is emitted
             entry (str): entry price defined by today (this) or next day (next)
             stoploss (int): lookback period (in days) to define stop loss price
-            strategy (str): 1) 2R, fixed profit taking at 2R; 2), sticky,
-                            raise stop loss as price goes up until it is hit by price
+            strategy (str): 1) 2R, fixed profit taking at 2R;
+                            2) sticky, raise stop loss as price goes up until it is hit by price
+                            3) investment, no stop loss
         
         Returns:
-            R (float): number of R made in this trade
-            exit_date (str): exit date
+            a tuple contains:
+                1) R (float): number of R made in this trade
+                2) exit price (float)
+                3) exit_date (str): exit date
         """
         
         # print('in get_fate')
@@ -698,13 +775,16 @@ class TimeSeriesPlus:
         action_lines = []
         stoploss_price = ''
         risk = 0
+
+        # buy for sure the next day
+        if strategy == "investment":
+            entry = "this"
         
         # invalid trading date
         if observe_date not in df.index:
             print ("observe_date is invalid; {}".format(observe_date))
             # print ('-->', R, exit, exit_date)
             return R, exit, exit_date
-
 
         # get holding period for loop through
         observe_date_index = df.index.get_loc(observe_date)
@@ -725,7 +805,7 @@ class TimeSeriesPlus:
                 trade_miss = True
             if trade_miss:
                 # print('-->', R, exit, exit_date)
-                return R, exit, exit_date
+                return 'missing', exit, exit_date
         elif entry == 'this':
             entry_price = df['4. close'][observe_date]
         risk = entry_price - stoploss_price + 0.000001
@@ -758,27 +838,28 @@ class TimeSeriesPlus:
 
         exit = 0
         exit_date = ''
-        for date, row in onboard.iterrows():
-            # price goes below stop loss and exit trade
-            if row['3. low'] <= stoploss_price:
-                if row['2. high'] < stoploss_price:
-                    exit = row['4. close']
-                else:
-                    exit = stoploss_price
-                exit_date = date
-                break
-            # take profit or move up stop loss
-            else:
-                dist = row['4. close'] - stoploss_price
-                if sticky:
-                    dist_byR = dist // risk
-                    if dist_byR > 1:
-                        stoploss_price = stoploss_price + risk * (dist_byR - 1)
-                        action_lines.append(stoploss_price)
-                elif row['2. high'] > profit_take:
-                    exit = profit_take
+        if strategy != "investment":
+            for date, row in onboard.iterrows():
+                # price goes below stop loss and exit trade
+                if row['3. low'] <= stoploss_price:
+                    if row['2. high'] < stoploss_price:
+                        exit = row['4. close']
+                    else:
+                        exit = stoploss_price
                     exit_date = date
                     break
+                # take profit or move up stop loss
+                else:
+                    dist = row['4. close'] - stoploss_price
+                    if sticky:
+                        dist_byR = dist // risk
+                        if dist_byR > 1:
+                            stoploss_price = stoploss_price + risk * (dist_byR - 1)
+                            action_lines.append(stoploss_price)
+                    elif row['2. high'] > profit_take:
+                        exit = profit_take
+                        exit_date = date
+                        break
         
         # No exit transaction is made in test period. exit at last closing price
         if exit == 0:
@@ -789,7 +870,9 @@ class TimeSeriesPlus:
         
         # print(exit, entry_price)
         
-        R = (exit - entry_price) / risk
+        R = (exit - entry_price)/risk
+        if strategy == "investment":
+            R = (exit - entry_price)*100/entry_price
         R = round(R, 3)
         if abs(R) < 0.001: 
             R = 0
@@ -929,16 +1012,20 @@ class TimeSeriesPlus:
         df = self.df
         df["date"] = df.index
 
-        # relative volume in look-back period
-        df['Volume_MA'] = df['5. volume'].rolling(n).mean()
-        df['relative_volume'] = df['5. volume'] / (df['Volume_MA'] + 1)
-        # df['relative_volume_max'] = df['relative_volume'].rolling(n).max()
-        # relative_volume_max_last = df['relative_volume_max'][-1]
-        relative_volume_max_last = df['relative_volume'][0-n:].max()
+        # get relative volume in the short look-back period
+        recent = df.copy(deep=True).tail(n)
+        average_volume = recent['5. volume'].median()
+        recent['relative_volume'] = recent['5. volume'] / (average_volume + 1)
+        relative_volume_short_max = recent['relative_volume'].max()
+        relative_volume_short_current = recent['relative_volume'][-1]
 
-        # relative volume at present day
-        df['Volume_MA_long'] = df['5. volume'].rolling(m).mean()
-        relative_volume_current = min(df['5. volume'][-1]/(df['Volume_MA_long'][-1] + 1), df['relative_volume'][-1] )
+        # get relative volume in the long look-back period
+        average_volume_long = df['5. volume'].rolling(m).median()[-1]
+        relative_volume_long_current = df['5. volume'][-1] / (average_volume_long + 1)
+
+        # get the greater value for current relative volume
+        relative_volume_current = max(relative_volume_short_current, relative_volume_long_current)
+        # relative_volume_current = relative_volume_short_current
 
         # test if price stays above the low of the highest volume date
         hold_well = False
@@ -956,12 +1043,71 @@ class TimeSeriesPlus:
         else:
             hold_well = True
 
-        # calculate ratio only if last day's relative volume is lower than average
-        #if relative_volume_max_last > 2 and 0 < relative_volume_current <= 1 and hold_well:
-        if 0 < relative_volume_current <= 1 and hold_well:
-            ratio = relative_volume_max_last/relative_volume_current
-            #ratio = relative_volume_current
-        return ratio, f"{relative_volume_max_last} {relative_volume_current}"
+        # calculate ratio only if last day's relative volume is lower than median
+        if hold_well: # and 0 < relative_volume_current <= 1
+            ratio = relative_volume_short_max/relative_volume_current
+        return ratio, f"{relative_volume_short_max} {relative_volume_current}"
+
+    def get_zigzag_score(self, days):
+        # test = self.df.tail(days)['4. close']
+        #
+        # std = test.rolling(days).std()[-1]
+        # mean = test.rolling(days).mean()[-1]
+        # z_score = (test - mean).abs() / std
+
+        df2 = df = self.df.copy(deep=True).tail(days)
+        std = df2['4. close'].rolling(days).std()[-1]
+        mean = df2['4. close'].rolling(days).mean()[-1]
+        df2['z_score'] = (df2['4. close'] - mean).abs() / std
+
+        df3 = df2.loc[df2['z_score'] < 2]
+
+        if df3.shape[0] < df2.shape[0] * 0.75:
+            return 1
+
+        days = df3.shape[0]
+        test = df3['4. close']
+
+        high = test.max()
+        low  = test.min()
+        mid_price = (high + low)/2
+        mid_day_index = int(days/2)
+        test1 = test[:mid_day_index]
+        test2 = test[mid_day_index:]
+        s1_high = np.where(test1 > mid_price, 1, 0).sum()
+        s1_low  = np.where(test1 < mid_price, 1, 0).sum()
+        s2_high = np.where(test2 > mid_price, 1, 0).sum()
+        s2_low  = np.where(test2 < mid_price, 1, 0).sum()
+
+        #
+        std = df2['1. open'].rolling(days).std()[-1]
+        mean = df2['1. open'].rolling(days).mean()[-1]
+        df2['z_score'] = (df2['1. open'] - mean).abs() / std
+
+        df3 = df2.loc[df2['z_score'] < 2]
+
+        if df3.shape[0] < df2.shape[0] * 0.75:
+            return 1
+
+        days = df3.shape[0]
+        test = df3['1. open']
+
+        high = test.max()
+        low  = test.min()
+        mid_price = (high + low)/2
+        mid_day_index = int(days/2)
+        test1 = test[:mid_day_index]
+        test2 = test[mid_day_index:]
+        s1_high += np.where(test1 > mid_price, 1, 0).sum()
+        s1_low  += np.where(test1 < mid_price, 1, 0).sum()
+        s2_high += np.where(test2 > mid_price, 1, 0).sum()
+        s2_low  += np.where(test2 < mid_price, 1, 0).sum()
+
+        # print(s1_high, s2_high, s1_low, s2_low)
+        p = chisquare([s1_high, s2_high], [s1_low, s2_low])
+        # print (p)
+
+        return p.pvalue
 
     def get_trading_uprange(self, day):
         """
@@ -973,8 +1119,9 @@ class TimeSeriesPlus:
             float, the difference in percentage
         """
         df = self.df.copy(deep=True)
-        prices = df["4. close"].tail(day)
-        return (prices.max() - prices[-1]) / prices.max()
+        prices = df["4. close"][-1]
+        history = df["10MA"].tail(day)
+        return (history.max() - prices) / history.max()
 
     def get_price_change_to_close(self):
         df = self.df
@@ -1096,7 +1243,6 @@ class TimeSeriesPlus:
         # print('//')
 
         return std
-
 
     def ema_attraction(self, ema_len, period):
         # self.do_rsi_wilder()
