@@ -123,6 +123,11 @@ def get_parser():
                         help=": sort by standard deviation of RSI in look-back period (eg, 20,6)")
     parser.add_argument("-sea", "--sort_ema_attraction", type=str, default='',
                         help=": sort by ema-vs-closing standard deviation in look-back period (eg, 50,10)")
+    parser.add_argument("-see", "--sort_ema_entanglement", type=str, default='',
+                        help=": filter and sort by ema crosses in defined recent look-back period (eg, 2,20,60,6)")
+                        
+                        
+                        
 
     #SAMPLING
     parser.add_argument("-smpl", "--sample",

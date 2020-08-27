@@ -208,6 +208,8 @@ def get_output_filename(infile, **kwargs):
         file_name = file_name + ".fcsd" + kwargs["filter_consolidation_p"].replace(',', '-')
     if kwargs["filter_ema_3layers"]:
         file_name = file_name + ".fEma3_" + kwargs["filter_ema_3layers"].replace(',', '-')
+    if kwargs["sort_ema_entanglement"]:
+        file_name = file_name + ".fEmaEtg_" + kwargs["sort_ema_entanglement"].replace(',', '-')
 
     if kwargs["weekly"]:
         file_name = file_name + ".weekly"

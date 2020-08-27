@@ -69,10 +69,10 @@ class AttributeTable:
         """Basic attribute data processing (update self.description)
         
             Remove oil and gas related securities (high volatility);
-            Add buy- and sold-dates;
+            Add buy- and sold-dates if available;
             Sort securities by purchase date followed by security name;
         """
-        df = self._attribute_table
+        df = self._attribute_table.copy(deep=True)
         if "Industry" in df:
             df = df[~df["Industry"].str.contains("Oil and Gas")]
 
@@ -680,7 +680,6 @@ class AttributeTable:
                     self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_consolidation(period)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] <= cutoff]
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
-                print(self._attribute_table["Sort"])
                 print("# {:>5} symbols meet sort_rsi_std requirement: {}".format(len(self._attribute_table), arg))
 
             if self.kwargs["sort_ema_attraction"]:
@@ -702,11 +701,26 @@ class AttributeTable:
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
                 print(self._attribute_table["Sort"])
                 print("# {:>5} symbols meet sort_ema_attraction requirement: {}".format(len(self._attribute_table), arg))
+                
+            if self.kwargs["sort_ema_entanglement"]:
+                arg = self.kwargs["sort_ema_entanglement"]
+                try:
+                    args = arg.split(",")
+                    ema_fast = int(args[0])
+                    ema_slow = int(args[1])
+                    span = int(args[2])
+                    cutoff = int(args[3])
+                except:                 
+                    print(f"Invalid sort_ema_entanglement argument {arg}")
+                    exit(1)
 
-
-
-
-
+                self._attribute_table["Sort"] = 0
+                for symbol in self._attribute_table.index:
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].ema_entanglement(ema_fast, ema_slow, span)
+                self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] >= cutoff]
+                self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
+                print("# {:>5} symbols meet sort_ema_entanglement requirement: {}".format(len(self._attribute_table), arg))
+                    
             if self.kwargs["filter_upward"]:
                 filter_upward = self.kwargs["filter_upward"]
                 args = filter_upward.split(',')
@@ -776,7 +790,6 @@ class AttributeTable:
                         = self.sts_daily[symbol].hit_horizontal_support(days, length, num, touch_down=False)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
                 print("# {:>5} symbols meet support slice criteria: {}".format(len(self._attribute_table), args))
-
 
 
             if self.kwargs["sort_ema_distance"] > 0:

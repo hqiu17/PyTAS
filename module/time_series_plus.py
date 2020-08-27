@@ -1267,9 +1267,30 @@ class TimeSeriesPlus:
 
         ratio = sub['diffLarge'].sum() / sub['diffLarge'].size
 
-        # print(sub['std_error'])
-        # print(std)
-        # print('//')
-
         return ratio
+
+
+    def ema_entanglement(self, ema_fast, ema_slow, period):
+        """Count how many times 2 EMAs cross each in defined recent period
+        
+        Args:
+            ema_fast (int): number of days to define fast moving average
+            ema_slow (int): number of days to define slow moving average
+            period (int): number of days to define recent lookback period
+            
+        Returns:
+            int (int): number of crossings between the two EMAs
+        """
+        
+        df = self.df.copy(deep=True)
+        df['fast'] = df["4. close"].ewm(span=ema_fast, adjust=False).mean()
+        df['slow'] = df["4. close"].ewm(span=ema_slow, adjust=False).mean()
+        df = df.tail(period)
+        df['diff'] = df['fast'] - df['slow']
+        df['signal'] = np.where(df['diff'] > 0, 1, 0)
+        
+        # total number of times two EMA cross each other
+        return df['signal'].diff().abs().sum()
+        
+
 
