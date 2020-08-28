@@ -746,14 +746,15 @@ class TimeSeriesPlus:
     #         if r_count < 0: loss += 1
     #     return samples_test, samples, R, win, loss
 
-    def get_fate(self, df, observe_date, test_period=40, entry='next', stoploss=3, strategy='2R'):
+#     def get_fate(self, df, observe_date, test_period=40, entry='next', stoploss=3, strategy='2R'):
+    def get_fate(self, observe_date, test_period=40, entry='next', stoploss=3, strategy='2R'):
         """Get outcome of a trade
         
         Args:
             df (dataframe): time series data to go through (holding period)
             observe_dat (str): date when buy signal is emitted
             entry (str): entry price defined by today (this) or next day (next)
-            stoploss (int): lookback period (in days) to define stop loss price
+            stoploss (int): lookback period (in days) to define stop loss price (the lowest low)
             strategy (str): 1) 2R, fixed profit taking at 2R;
                             2) sticky, raise stop loss as price goes up until it is hit by price
                             3) investment, no stop loss
@@ -775,6 +776,7 @@ class TimeSeriesPlus:
         action_lines = []
         stoploss_price = ''
         risk = 0
+        df = self.df
 
         # buy for sure the next day
         if strategy == "investment":
@@ -786,7 +788,7 @@ class TimeSeriesPlus:
             # print ('-->', R, exit, exit_date)
             return R, exit, exit_date
 
-        # get holding period for loop through
+        # get data for holding period for loop through
         observe_date_index = df.index.get_loc(observe_date)
         onboard = df.iloc[observe_date_index + 1:]
         onboard = onboard.head(test_period)      # fixed holding period
@@ -810,8 +812,9 @@ class TimeSeriesPlus:
             entry_price = df['4. close'][observe_date]
         risk = entry_price - stoploss_price + 0.000001
 
-        action_lines.append(entry_price)
+        # record key prices 
         action_lines.append(stoploss_price)
+        action_lines.append(entry_price)
 
         # set up strategy
         profit_take = 2000000
@@ -839,7 +842,13 @@ class TimeSeriesPlus:
         exit = 0
         exit_date = ''
         if strategy != "investment":
+            count_2MA_below_10MA = 0
             for date, row in onboard.iterrows():
+                if row['2MA'] <= row['10MA']:
+                    count_2MA_below_10MA += 1
+                else:
+                    count_2MA_below_10MA = 0                
+
                 # price goes below stop loss and exit trade
                 if row['3. low'] <= stoploss_price:
                     if row['2. high'] < stoploss_price:
@@ -848,6 +857,11 @@ class TimeSeriesPlus:
                         exit = stoploss_price
                     exit_date = date
                     break
+                # exit when 2EMA stay below 10EMA for 2 successive days                    
+#                 elif count_2MA_below_10MA>=2:
+#                     exit = row['4. close']
+#                     exit_date = date
+#                     break
                 # take profit or move up stop loss
                 else:
                     dist = row['4. close'] - stoploss_price

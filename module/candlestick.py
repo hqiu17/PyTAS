@@ -305,7 +305,7 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
         for p in prices:
             p = float(p)
             plt.axhline(y=p, color="grey", linewidth=1)
-        y_buy  = prices[0]
+        y_buy  = prices[1]
         y_sell = prices[-1]
 
     if y_buy and y_sell:
@@ -368,7 +368,7 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
             # if MA in df:
             #     df[MA].plot(dashes=[2,2], color='grey', alpha=alpha/2)
 
-        if sample_size <= 120:
+        if sample_size <= 60:
             if 'BB20u' in df and 'BB20d' in df:
                 df['BB20u'].plot(color='#1f77b4', alpha=alpha)
                 df['BB20d'].plot(color='#1f77b4', alpha=alpha)

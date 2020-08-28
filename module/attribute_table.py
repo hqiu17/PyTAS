@@ -7,12 +7,14 @@ import sys
 import math
 import numpy as np
 import pandas as pd
+import threading
+import multiprocessing
 import module.utility as utility
 from module.time_series_plus import TimeSeriesPlus
 from module.candlestick import date_to_index
 
 
-class AttributeTable:
+class AttributeTable():
     """A class representing a list of securities and their attributes
     
     Attributes:
@@ -41,14 +43,41 @@ class AttributeTable:
         self.backtest_date_extension = ''
         self.backtest_strategy = '2R'
         self.check_date = ''
-        self.sts_daily = {}
+        self.sts_daily_test = {}
         self.sts_daily_plot = {}
+        self.attribute_table_bythread = []
+        self.sts_daily_test_bythread = []
+        self.sts_daily_plot_bythread = []
 
         # warming up steps
         self.basic_processing()
         self.backtest()
         self.make_header()
         self.read_timeseries()
+        
+    def combine_thread_output(self):
+        attribute_table = pd.DataFrame()
+        sts_daily_test = {}
+        sts_daily_plot = {}
+        
+        if len(self.attribute_table_bythread) > 1:
+            print("# {:>5} run with {} threads to read input data".format('', len(self.attribute_table_bythread)))
+        
+        for table in self.attribute_table_bythread:
+#             print('subset', table.shape[0])
+            if attribute_table.shape[0] < 1:
+                attribute_table = table
+            else:
+                attribute_table = attribute_table.append(table)
+        for i in self.sts_daily_test_bythread:
+            sts_daily_test = {**sts_daily_test, **i}
+        for i in self.sts_daily_plot_bythread:
+            sts_daily_plot = {**sts_daily_plot, **i}
+
+        self._attribute_table = attribute_table
+        self.sts_daily_test = sts_daily_test
+        self.sts_daily_plot = sts_daily_plot
+        
 
     def get_attribute_table(self):
         if self.check_date:
@@ -63,7 +92,7 @@ class AttributeTable:
         if len(self.sts_daily_plot) > 0:
             return self.sts_daily_plot
         else:
-            return self.sts_daily
+            return self.sts_daily_test
 
     def basic_processing(self):
         """Basic attribute data processing (update self.description)
@@ -176,12 +205,60 @@ class AttributeTable:
         """Read price data for each security and load into memory
            Securities without price data are dropped.
         """
+        minimal_volume = 100000
+
+        # set up 
+        df = self._attribute_table
+
+        number_threads = 4
+        step = round(self._attribute_table.shape[0]/number_threads)
+
+        # split attribute_table into smaller subsets
+        subsets = []        
+        starter = 0
+        for i in range(number_threads):
+            if i == (number_threads - 1):
+                subsets.append(df.iloc[starter:])
+            else:
+                subsets.append(df.iloc[starter : (starter + step)])
+            starter = starter + step
+
+        # read each sebset with a separate thread
+        threads = []
+        for subset in subsets:
+            th = threading.Thread(target=self.read_timeseries_thread, args=(subset,))
+            # multiprocessing does not work (can't share information across processor)
+#             th = multiprocessing.Process(target=self.read_timeseries_thread, args=(subset,))
+            threads.append(th)
+            th.start()
+        
+        # wait for all threads to complete
+        for th in threads:
+            th.join()
+
+        self.combine_thread_output()
+        
+        # Report
+        if self.kwargs["remove_sector"]:
+            print("# {:>5} symbols have valid time series data "
+                  "(length>{}, volume>{} and not associated with sector(s) {}".format(
+                len(self._attribute_table), minimal_rows, minimal_volume, self.kwargs["remove_sector"]))
+        else:
+            print("# {:>5} symbols with valid time series data (length>{} and volume>{})".format(
+                len(self._attribute_table), minimal_rows, minimal_volume))
+
+
+    def read_timeseries_thread(self, df, minimal_rows=60, minimal_volume = 100000):
+        """Read price data for each security and load into memory
+           Securities without price data are dropped.
+        """
         dict_sts = {}
         dict_sts_plot = {}
         backtest_date_invalid = 0
-        minimal_volume = 100000
-        for symbol, row in self._attribute_table.iterrows():
-
+        df_symbols = df.copy(deep=True)
+        
+        for symbol, row in df_symbols.iterrows():
+            print ('reading', symbol) #xxx
             # remove symbol associated with defined sectors
             removed_sector = ""
             if self.kwargs["remove_sector"]:
@@ -196,12 +273,14 @@ class AttributeTable:
                             remove = True
                             break
                 if remove:
-                    self._attribute_table = self._attribute_table.drop(symbol)
+                    df_symbols = df_symbols.drop(symbol)
                     continue
 
             # read in data files
             file = self.data_dir + "/" + symbol + ".txt"
-            if os.path.exists(file):
+            if not os.path.exists(file):
+                df_symbols = df_symbols.drop(symbol)            
+            else:
                 # read in data into dataframe
                 try:
                     price = pd.read_csv(file, sep="\t", parse_dates=['date'], index_col=['date'])
@@ -211,14 +290,14 @@ class AttributeTable:
                 except:
                     e = sys.exc_info()[0]
                     print("x-> Error while reading historical data for {}\t error: {}".format(symbol, e))
-                    self._attribute_table = self._attribute_table.drop(symbol)
+                    df_symbols = df_symbols.drop(symbol)
 
                 # remove rows with NA, remove df with insufficient rows or with low trading volume
                 price.replace('', np.nan, inplace=True)
                 price = price.dropna(axis='index')
-                if symbol in self._attribute_table.index:
+                if symbol in df_symbols.index:
                     if price.shape[0] < minimal_rows or price["5. volume"][-1] < minimal_volume:
-                        self._attribute_table = self._attribute_table.drop(symbol, axis=0)
+                        df_symbols = df_symbols.drop(symbol, axis=0)
                         continue
 
                 price_for_test = price
@@ -238,7 +317,7 @@ class AttributeTable:
 
                     if backtest_date not in price.index:
                         backtest_date_invalid += 1
-                        self._attribute_table = self._attribute_table.drop(symbol, axis=0)
+                        df_symbols = df_symbols.drop(symbol, axis=0)
                         continue
                     else:
                         backtest_date_invalid = 0
@@ -246,7 +325,7 @@ class AttributeTable:
                     # Given valid backtest date, do trade
                     if backtest_date in price.index:
                         # assign back test dates
-                        self._attribute_table.loc[symbol, 'Date Added'] = backtest_date
+                        df_symbols.loc[symbol, 'Date Added'] = backtest_date
                         loci = price.index.get_loc(backtest_date) + 1
                         price_for_test = price[0:loci]
 
@@ -260,14 +339,20 @@ class AttributeTable:
                             price_plot = price[0:loci_check]
                             dict_sts_plot[symbol] = TimeSeriesPlus(price_plot).sma_multiple()
 
-                            r, key_prices, date = TimeSeriesPlus.get_fate(
-                                'xxx', price, backtest_date, extension, 'next', 5, self.backtest_strategy)
+#                             r, key_prices, date = TimeSeriesPlus.get_fate(
+#                                 'xxx', price, backtest_date, extension, 'next', 5, self.backtest_strategy)
+
+                            r, key_prices, date = TimeSeriesPlus(price).get_fate(
+                                backtest_date, extension, 'next', 5, self.backtest_strategy)
+                                
+#                             print(r, key_prices, date) #xxx
+                 
                             if r == 'missing':
-                                self._attribute_table = self._attribute_table.drop(symbol)
+                                df_symbols = df_symbols.drop(symbol)
                             else:
-                                self._attribute_table.loc[symbol, 'PL'] = r
-                                self._attribute_table.loc[symbol, 'exit Price'] = key_prices
-                                self._attribute_table.loc[symbol, 'Date Sold'] = date
+                                df_symbols.loc[symbol, 'PL'] = r
+                                df_symbols.loc[symbol, 'exit Price'] = key_prices
+                                df_symbols.loc[symbol, 'Date Sold'] = date
 
                 if self.kwargs["time_scale"]:
                     arg = self.kwargs["time_scale"]
@@ -292,8 +377,6 @@ class AttributeTable:
                             price_for_test = TimeSeriesPlus(price_for_test).get_monthly()
 
                 dict_sts[symbol] = TimeSeriesPlus(price_for_test)
-            else:
-                self._attribute_table = self._attribute_table.drop(symbol)
 
         # # read SPY as benchmark
         # ref = self.data_dir + "/" + 'SPY' + ".txt"
@@ -309,17 +392,11 @@ class AttributeTable:
         #
         #     dict_sts['SPY'] = TimeSeriesPlus(price)
 
-        # Report
-        if removed_sector:
-            print("# {:>5} symbols have valid time series data "
-                  "(length>{}, volume>{} and not associated with sector(s) {}".format(
-                len(self._attribute_table), minimal_rows, minimal_volume, removed_sector))
-        else:
-            print("# {:>5} symbols have valid time series data (length>{} and volume>{})".format(
-                len(self._attribute_table), minimal_rows, minimal_volume))
-
-        self.sts_daily = dict_sts
-        self.sts_daily_plot = dict_sts_plot
+        self.attribute_table_bythread.append(df_symbols)
+        self.sts_daily_test_bythread.append(dict_sts)
+        self.sts_daily_plot_bythread.append(dict_sts_plot)
+#         print(df_symbols.index)
+#         print(dict_sts.keys())
 
     def work(self):
         """Filter and sort securities based on keyword arguments
@@ -386,7 +463,7 @@ class AttributeTable:
                     exit(1)
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].df['4. close'][-1]
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily_test[symbol].df['4. close'][-1]
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > pmin]
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] < pmax]
                 print("# {:>5} symbols meet price criteria".format(len(self._attribute_table)))
@@ -406,7 +483,7 @@ class AttributeTable:
                 self._attribute_table["Sort"] = 0
                 if trange_days > 0:
                     for symbol, row in self._attribute_table.iterrows():
-                        self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_trading_uprange(
+                        self._attribute_table.loc[symbol, "Sort"] = self.sts_daily_test[symbol].get_trading_uprange(
                             trange_days)
                 if trange_cutoff >= 0:
                     self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] >= trange_cutoff]
@@ -433,7 +510,7 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].macd_cross_up(sspan, lspan, days)
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily_test[symbol].macd_cross_up(sspan, lspan, days)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
                 print("# {:>5} symbols meet macd criteria".format(len(self._attribute_table)))
 
@@ -456,7 +533,7 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].ema_cross_up(fast, slow, days)
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily_test[symbol].ema_cross_up(fast, slow, days)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
                 print("# {:>5} symbols meet ema crossing up criteria".format(len(self._attribute_table)))
 
@@ -470,7 +547,7 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_rsi()
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily_test[symbol].get_rsi()
                 self._attribute_table = self._attribute_table.loc[low < self._attribute_table["Sort"]]
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] < high]
                 self._attribute_table = self._attribute_table.sort_values(["Sort"])
@@ -489,7 +566,7 @@ class AttributeTable:
                     hold_up = args[2]
                 for symbol in self._attribute_table.index:
                     self._attribute_table.loc[symbol, "Sort"], details = \
-                        self.sts_daily[symbol].get_volume_index(length, hold=hold_up)
+                        self.sts_daily_test[symbol].get_volume_index(length, hold=hold_up)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > ratio]
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
                 print("# {:>5} symbols meet filter_surging_volume".format(len(self._attribute_table)))
@@ -501,11 +578,11 @@ class AttributeTable:
                 cutoff = float(cutoff)
                 for symbol in self._attribute_table.index:
                     sort_value = 0
-                    if self.sts_daily[symbol].two_dragon(5, 15, 5, 0.9, vol=True) > 0:
-                        sort_value = self.sts_daily[symbol].get_relative_volume(length)
+                    if self.sts_daily_test[symbol].two_dragon(5, 15, 5, 0.9, vol=True) > 0:
+                        sort_value = self.sts_daily_test[symbol].get_relative_volume(length)
                     self._attribute_table.loc[symbol, "Sort"] = sort_value
 
-                    # self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_relative_volume(length)
+                    # self._attribute_table.loc[symbol, "Sort"] = self.sts_daily_test[symbol].get_relative_volume(length)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > cutoff]
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
                 print("# {:>5} symbols meet exploding_surging_volume".format(len(self._attribute_table)))
@@ -517,8 +594,8 @@ class AttributeTable:
                 cutoff = float(cutoff)
                 for symbol in self._attribute_table.index:
                     sort_value = 0
-                    if self.sts_daily[symbol].get_zigzag_score(length) > 0:
-                        sort_value = self.sts_daily[symbol].get_zigzag_score(length)
+                    if self.sts_daily_test[symbol].get_zigzag_score(length) > 0:
+                        sort_value = self.sts_daily_test[symbol].get_zigzag_score(length)
                     self._attribute_table.loc[symbol, "Sort"] = sort_value
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > cutoff]
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
@@ -546,7 +623,7 @@ class AttributeTable:
                     sys.exit(1)
 
                 for symbol in self._attribute_table.index:
-                    (k, d, cross, bullish) = self.sts_daily[symbol].stochastic_cross(n, m)
+                    (k, d, cross, bullish) = self.sts_daily_test[symbol].stochastic_cross(n, m)
                     status = True
                     if k > cutoff + 15 or d > cutoff:
                         status = False
@@ -582,7 +659,7 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].two_dragon(*array2)
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily_test[symbol].two_dragon(*array2)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
 
                 print("# {:>5} symbols meet filter_parallel_ema criteria {}".format(len(self._attribute_table), args))
@@ -608,7 +685,7 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = False
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].ema_3layers(query, short, long,
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily_test[symbol].ema_3layers(query, short, long,
                                                                                                    days, cutoff)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
                 print("# {:>5} symbols meet filter_hit_ema_support {}".format(len(self._attribute_table), args))
@@ -623,7 +700,7 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = False
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].hit_ema_support(ema, days)
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily_test[symbol].hit_ema_support(ema, days)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
                 print("# {:>5} symbols meet filter_hit_ema_support {}".format(len(self._attribute_table), args))
 
@@ -641,8 +718,8 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = 0
                 for symbol, row in self._attribute_table.iterrows():
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_BBdistance(days)
-                    df = self.sts_daily[symbol].df
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily_test[symbol].get_BBdistance(days)
+                    df = self.sts_daily_test[symbol].df
                     if df.shape[0] < 100:
                         self._attribute_table.loc[symbol, "Sort"] = 1
                         continue
@@ -677,7 +754,7 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_consolidation(period)
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily_test[symbol].get_consolidation(period)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] <= cutoff]
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
                 print("# {:>5} symbols meet sort_rsi_std requirement: {}".format(len(self._attribute_table), arg))
@@ -696,7 +773,7 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].ema_attraction(ema_len, period)
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily_test[symbol].ema_attraction(ema_len, period)
                 # self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] <= cutoff]
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
                 print(self._attribute_table["Sort"])
@@ -716,7 +793,7 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].ema_entanglement(ema_fast, ema_slow, span)
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily_test[symbol].ema_entanglement(ema_fast, ema_slow, span)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] >= cutoff]
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
                 print("# {:>5} symbols meet sort_ema_entanglement requirement: {}".format(len(self._attribute_table), arg))
@@ -727,7 +804,7 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].in_uptrend(*args)
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily_test[symbol].in_uptrend(*args)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > 0]
                 print("# {:>5} symbols meet filter_upward criteria {}".
                       format(len(self._attribute_table), filter_upward))
@@ -742,7 +819,7 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = False
                 for symbol in self._attribute_table.index:
-                    pivot_caught = self.sts_daily[symbol].horizon_slice(days)
+                    pivot_caught = self.sts_daily_test[symbol].horizon_slice(days)
                     if pivot_caught >= num:
                         # print (symbol, pivot_caught, num)
                         self._attribute_table.loc[symbol, "Sort"] = True
@@ -755,7 +832,7 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = False
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].ema_slice(filter_ema_slice)
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily_test[symbol].ema_slice(filter_ema_slice)
 
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
                 print("# {:>5} symbols meet EMA slice criteria: {}"
@@ -772,7 +849,7 @@ class AttributeTable:
                 self._attribute_table["Sort"] = False
                 for symbol in self._attribute_table.index:
                     self._attribute_table.loc[symbol, "Sort"] \
-                        = self.sts_daily[symbol].hit_horizontal_support(days, length, num)
+                        = self.sts_daily_test[symbol].hit_horizontal_support(days, length, num)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
                 print("# {:>5} symbols meet support slice criteria: {}".format(len(self._attribute_table), args))
 
@@ -787,7 +864,7 @@ class AttributeTable:
                 self._attribute_table["Sort"] = False
                 for symbol in self._attribute_table.index:
                     self._attribute_table.loc[symbol, "Sort"] \
-                        = self.sts_daily[symbol].hit_horizontal_support(days, length, num, touch_down=False)
+                        = self.sts_daily_test[symbol].hit_horizontal_support(days, length, num, touch_down=False)
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"]]
                 print("# {:>5} symbols meet support slice criteria: {}".format(len(self._attribute_table), args))
 
@@ -799,7 +876,7 @@ class AttributeTable:
 
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
-                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily[symbol].get_SMAdistance(
+                    self._attribute_table.loc[symbol, "Sort"] = self.sts_daily_test[symbol].get_SMAdistance(
                         sort_ema_distance)
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
 
@@ -826,7 +903,7 @@ class AttributeTable:
                 self._attribute_table["Sort"] = 0
                 for symbol, row in self._attribute_table.iterrows():
                     self._attribute_table.loc[symbol, "Sort"] = \
-                        self.sts_daily[symbol].get_referenced_change(reference, subject)
+                        self.sts_daily_test[symbol].get_referenced_change(reference, subject)
 
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=True)
                 self._attribute_table["Date Added"] = reference
@@ -854,7 +931,7 @@ class AttributeTable:
 
                 if ref:
                     try:
-                        ref_performance = self.sts_daily[ref].get_latest_performance(days)
+                        ref_performance = self.sts_daily_test[ref].get_latest_performance(days)
                         print("spy", ref_performance)
                     except:
                         print("Error in getting performance data for {}".format(ref))
@@ -863,7 +940,7 @@ class AttributeTable:
                 self._attribute_table["Sort"] = 0
                 for symbol in self._attribute_table.index:
                     self._attribute_table.loc[symbol, "Sort"] = \
-                        self.sts_daily[symbol].get_latest_performance(days, ref_performance)
+                        self.sts_daily_test[symbol].get_latest_performance(days, ref_performance)
 
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
                 if -1 < cut < 10:
