@@ -310,20 +310,21 @@ def draw_a_candlestick(ax, df0, sticker="", foldchange_cutoff=3,
 
     if y_buy and y_sell:
         # if y_buy * 0.97 >= y_sell:
-        if pl < 0:    #xxx
-            color = 'red'
-            # print('PL2color', y_buy, y_sell, 'redLoss')
-            plt.axhspan(y_sell, y_buy, color=color, alpha=0.3)
-            PL_cololred = True
-        elif pl > 0:
-            color = 'green'
-            # print('PL2color', y_buy, y_sell, color)
-            plt.axhspan(y_buy, y_sell, color=color, alpha=0.3)
-            PL_cololred = True
-        else:
-            # print('PL2color', y_buy, y_sell, color)
-            plt.axhspan(y_buy, y_sell, color=color, alpha=0.3)
-            PL_cololred = True
+        if pl:
+            if pl < 0:    #xxx
+                color = 'red'
+                # print('PL2color', y_buy, y_sell, 'redLoss')
+                plt.axhspan(y_sell, y_buy, color=color, alpha=0.3)
+                PL_cololred = True
+            elif pl > 0:
+                color = 'green'
+                # print('PL2color', y_buy, y_sell, color)
+                plt.axhspan(y_buy, y_sell, color=color, alpha=0.3)
+                PL_cololred = True
+            else:
+                # print('PL2color', y_buy, y_sell, color)
+                plt.axhspan(y_buy, y_sell, color=color, alpha=0.3)
+                PL_cololred = True
 
     # draw horizontal lines for last day's low and close
     if not PL_cololred:

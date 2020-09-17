@@ -265,21 +265,24 @@ class TimeSeriesPlus:
             status = 1
         return status
 
-    def ema_cross_up(self, fast, slow, persist=1):
+    def ema_cross_up(self, fast, slow, under=2):
         df = self.df.copy(deep=True)
         sma_fast = df['4. close'].ewm(span=fast, adjust=False).mean()
         sma_slow = df['4. close'].ewm(span=slow, adjust=False).mean()
         df["signal"] = sma_fast - sma_slow
         df["signal"] = np.where(df["signal"] > 0, 1, 0)
 
+        if under < 2:
+            under = 2
+
         status = 0
-        tail = df["signal"][-8:]    # examine the last 8 days
+        tail = df["signal"][(0 - under):]    # examine the last 8 days
         switch = tail.diff().sum()
         landing = tail.sum()
         if (tail[0] == 0 and                # at the first day macd is below signal line
                 tail[-1] == 1 and           # at the last day macd is above signal line
                 switch == 1 and             # only one crossing happened
-                landing <= persist):        # days elapsed after crossing is less than cutoff (persist)
+                landing <= 1):              # days elapsed after crossing is 0
             status = 1
         return status
 
@@ -316,11 +319,11 @@ class TimeSeriesPlus:
 
         status = 0  # =0: undetermined status; =1: 1st ema above 2nd ema; =-1: 1st ema below 2nd ema
 
-
         # sma_fast = df['4. close'].ewm(span=fast, adjust=False).mean()
         # sma_slow = df['4. close'].ewm(span=slow, adjust=False).mean()
 
         df = dataframe.copy(deep=True)
+
         if vol:
             ma1_key = "v" + str(MAdays1) + "_SMA"
             ma2_key = "v" + str(MAdays2) + "_SMA"
@@ -330,9 +333,9 @@ class TimeSeriesPlus:
 
         # if dataframe length is not sufficient to calculate ema, return 0
 
-        if (TRNDdays + MAdays1) > df.shape[0] or (TRNDdays + MAdays2) > df.shape[0]:
-            # print(f"dataframe length {df.shape[0]} is not sufficient to calculate and do test using ema")
-            return status
+        # if (TRNDdays + MAdays1) > df.shape[0] or (TRNDdays + MAdays2) > df.shape[0]:
+        #     # print(f"dataframe length {df.shape[0]} is not sufficient to calculate and do test using ema")
+        #     return status
 
         if ma1_key in df.columns and ma2_key in df.columns:
             df['ma01'] = df[ma1_key]
@@ -441,7 +444,6 @@ class TimeSeriesPlus:
 
         return status
 
-
     def in_uptrend_internal(self, dataframe, TRNDdays, cutoff, blind):
         """ 
             return status (1)  for uptrend
@@ -474,13 +476,12 @@ class TimeSeriesPlus:
         count = 0
         count += self.two_dragon_internal(20, 50, TRNDdays, df, cutoff)
         count += self.two_dragon_internal(50,  100, TRNDdays, df, cutoff)
-        count += self.two_dragon_internal(100, 150, TRNDdays, df, cutoff)
+        count += self.two_dragon_internal(100, 200, TRNDdays, df, cutoff)
         # count += self.two_dragon_internal(150, 200, TRNDdays, df, cutoff)
         if count == 3:
             status = 1
         elif count == -3:
             status = -1
-        # print("    ", status) #%
         return status
 
     def in_uptrend(self, TRNDdays, cutoff=0.8, blind=0, launch=False):

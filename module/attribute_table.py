@@ -1,7 +1,6 @@
 """
 AttributeTable class and methods
 """
-
 import os
 import sys
 import math
@@ -74,7 +73,7 @@ class AttributeTable():
         for i in self.sts_daily_plot_bythread:
             sts_daily_plot = {**sts_daily_plot, **i}
 
-        self._attribute_table = attribute_table
+        self._attribute_table = attribute_table.copy(deep=True)
         self.sts_daily_test = sts_daily_test
         self.sts_daily_plot = sts_daily_plot
         
@@ -210,11 +209,11 @@ class AttributeTable():
         # set up 
         df = self._attribute_table
 
-        number_threads = 4
+        number_threads = 1
         step = round(self._attribute_table.shape[0]/number_threads)
 
         # split attribute_table into smaller subsets
-        subsets = []        
+        subsets = []    
         starter = 0
         for i in range(number_threads):
             if i == (number_threads - 1):
@@ -227,7 +226,7 @@ class AttributeTable():
         threads = []
         for subset in subsets:
             th = threading.Thread(target=self.read_timeseries_thread, args=(subset,))
-            # multiprocessing does not work (can't share information across processor)
+#             multiprocessing does not work (can't share information across processor)
 #             th = multiprocessing.Process(target=self.read_timeseries_thread, args=(subset,))
             threads.append(th)
             th.start()
@@ -258,7 +257,7 @@ class AttributeTable():
         df_symbols = df.copy(deep=True)
         
         for symbol, row in df_symbols.iterrows():
-            print ('reading', symbol) #xxx
+#             print ('reading', symbol) #xxx
             # remove symbol associated with defined sectors
             removed_sector = ""
             if self.kwargs["remove_sector"]:
@@ -345,7 +344,7 @@ class AttributeTable():
                             r, key_prices, date = TimeSeriesPlus(price).get_fate(
                                 backtest_date, extension, 'next', 5, self.backtest_strategy)
                                 
-#                             print(r, key_prices, date) #xxx
+#                             print(symbol, r, key_prices, date) #xxx
                  
                             if r == 'missing':
                                 df_symbols = df_symbols.drop(symbol)
@@ -600,7 +599,7 @@ class AttributeTable():
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > cutoff]
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
                 print("# {:>5} symbols meet filter_consolidation_p criteria".format(len(self._attribute_table)))
-                print(self._attribute_table['Sort']) #xxx
+#                 print(self._attribute_table['Sort']) #xxx
 
             # method filter based on stochastic signal
             if self.kwargs["filter_stochastic_sgl"]:
