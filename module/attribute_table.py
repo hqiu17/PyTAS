@@ -1,6 +1,7 @@
 """
 AttributeTable class and methods
 """
+
 import os
 import sys
 import math
@@ -17,13 +18,24 @@ class AttributeTable():
     """A class representing a list of securities and their attributes
     
     Attributes:
-        attribute_table (dataframe): with symbol column as index
-        data_dir (str): location of directory containing price data
-        sts_daily (dict): dictionary holding timeseries data for each security
+        _attribute_table (dataframe): with symbol column as index and attributes as other columns
+        data_dir (str): path to the directory containing price data
         kwargs (dict): dictionary holding pairs of arguments and values
+        backtest_date (str): date when data is observed in backtest (eg, 2020-20-20)
+        backtest_date_extension (int): number of days to monitor following backtest date
+        backtest_strategy (str): how exit is made after entering into a trade (options: 2R, 2.5R, )
+        sts_daily_test (dict): dictionary holding timeseries data for each security used for sorting and filtering
+        sts_daily_plot (dict): dictionary holding timeseries data for each security used for plotting only
+        attribute_table_bythread (list): a list of attribute_table
+        sts_daily_test_bythread (list): a list of sts_daily_test
+        sts_daily_plot_bythread (list): a list of sts_daily_plot
     Methods:
-        get_new_attribute_table():
-            return securities attribute table
+        combine_thread_output():
+            Combine security attributes and time series data from mulitple thread
+        get_attribute_table():
+            Get table containing securities and their attributes
+        get_dict_timeseries():
+            Get a dictionary containing time series price data for each security
         basic_processing():
             default data cleaning and sorting
         make_header():
@@ -47,7 +59,6 @@ class AttributeTable():
         self.attribute_table_bythread = []
         self.sts_daily_test_bythread = []
         self.sts_daily_plot_bythread = []
-
         # warming up steps
         self.basic_processing()
         self.backtest()
@@ -55,12 +66,14 @@ class AttributeTable():
         self.read_timeseries()
         
     def combine_thread_output(self):
+        """Combine security attributes and time series data from mulitple thread
+        """
         attribute_table = pd.DataFrame()
         sts_daily_test = {}
         sts_daily_plot = {}
         
-        if len(self.attribute_table_bythread) > 1:
-            print("# {:>5} run with {} threads to read input data".format('', len(self.attribute_table_bythread)))
+        # if len(self.attribute_table_bythread) > 1:
+        #     print("# {:>5} run with {} threads to read input data".format('', len(self.attribute_table_bythread)))
         
         for table in self.attribute_table_bythread:
 #             print('subset', table.shape[0])
@@ -73,12 +86,13 @@ class AttributeTable():
         for i in self.sts_daily_plot_bythread:
             sts_daily_plot = {**sts_daily_plot, **i}
 
-        self._attribute_table = attribute_table.copy(deep=True)
+        self._attribute_table = attribute_table
         self.sts_daily_test = sts_daily_test
         self.sts_daily_plot = sts_daily_plot
-        
 
     def get_attribute_table(self):
+        """Get securities table associated with this object
+        """
         if self.check_date:
             self._attribute_table["Date Sold"] = self.check_date
         if self.backtest_date:
@@ -88,6 +102,9 @@ class AttributeTable():
         return self._attribute_table
 
     def get_dict_timeseries(self):
+        """Get a dictionary containing time series price data for each security
+            if no time series data for plot purpose is available, return data used for sorting and filtering
+        """
         if len(self.sts_daily_plot) > 0:
             return self.sts_daily_plot
         else:
@@ -165,6 +182,8 @@ class AttributeTable():
         self._attribute_table = df
 
     def df_rename_columns(self, df):
+        """Change column heads in yahoo finance-downloaded tiemseries data into alpha-advantage format
+        """
         if 'Date' in df.columns:
             df.rename(columns={'Date': 'date'}, inplace=True)
         if 'Open' in df.columns:
@@ -182,9 +201,7 @@ class AttributeTable():
     def backtest(self):
         """Set up backtest parameters if keyword argument is given
         """
-        extension = ''
         backtest_date = ''
-        strategy = ''
         if self.kwargs['backtest_date']:
             arg = self.kwargs['backtest_date']
             if ',' in arg:
@@ -206,14 +223,14 @@ class AttributeTable():
         """
         minimal_volume = 100000
 
-        # set up 
+        # Set up
         df = self._attribute_table
 
-        number_threads = 1
+        number_threads = 4
         step = round(self._attribute_table.shape[0]/number_threads)
 
-        # split attribute_table into smaller subsets
-        subsets = []    
+        # Split attribute_table into smaller subsets
+        subsets = []        
         starter = 0
         for i in range(number_threads):
             if i == (number_threads - 1):
@@ -222,12 +239,15 @@ class AttributeTable():
                 subsets.append(df.iloc[starter : (starter + step)])
             starter = starter + step
 
-        # read each sebset with a separate thread
+        # Read each sebset with a separate thread
         threads = []
         for subset in subsets:
             th = threading.Thread(target=self.read_timeseries_thread, args=(subset,))
-#             multiprocessing does not work (can't share information across processor)
+
+#            Another way to do multi-threading is to use 'multiprocessing'. However
+#             multiprocessing does not share information across processor. cry shame.
 #             th = multiprocessing.Process(target=self.read_timeseries_thread, args=(subset,))
+
             threads.append(th)
             th.start()
         
@@ -235,9 +255,8 @@ class AttributeTable():
         for th in threads:
             th.join()
 
+        # Merge data across threads and print report
         self.combine_thread_output()
-        
-        # Report
         if self.kwargs["remove_sector"]:
             print("# {:>5} symbols have valid time series data "
                   "(length>{}, volume>{} and not associated with sector(s) {}".format(
@@ -246,10 +265,13 @@ class AttributeTable():
             print("# {:>5} symbols with valid time series data (length>{} and volume>{})".format(
                 len(self._attribute_table), minimal_rows, minimal_volume))
 
-
     def read_timeseries_thread(self, df, minimal_rows=60, minimal_volume = 100000):
-        """Read price data for each security and load into memory
-           Securities without price data are dropped.
+        """Read price data for security and load into memory. Securities without price data are dropped
+
+        Args:
+            df (pandas dataframe):
+            minimal_rows (int): minimal number of rows for a security to be loaded
+            minimal_volume (int): minimal volume in the last trading day for a security to be loaded
         """
         dict_sts = {}
         dict_sts_plot = {}
@@ -257,7 +279,6 @@ class AttributeTable():
         df_symbols = df.copy(deep=True)
         
         for symbol, row in df_symbols.iterrows():
-#             print ('reading', symbol) #xxx
             # remove symbol associated with defined sectors
             removed_sector = ""
             if self.kwargs["remove_sector"]:
@@ -344,7 +365,7 @@ class AttributeTable():
                             r, key_prices, date = TimeSeriesPlus(price).get_fate(
                                 backtest_date, extension, 'next', 5, self.backtest_strategy)
                                 
-#                             print(symbol, r, key_prices, date) #xxx
+#                             print(r, key_prices, date) #xxx
                  
                             if r == 'missing':
                                 df_symbols = df_symbols.drop(symbol)
@@ -394,8 +415,6 @@ class AttributeTable():
         self.attribute_table_bythread.append(df_symbols)
         self.sts_daily_test_bythread.append(dict_sts)
         self.sts_daily_plot_bythread.append(dict_sts_plot)
-#         print(df_symbols.index)
-#         print(dict_sts.keys())
 
     def work(self):
         """Filter and sort securities based on keyword arguments
@@ -599,7 +618,7 @@ class AttributeTable():
                 self._attribute_table = self._attribute_table.loc[self._attribute_table["Sort"] > cutoff]
                 self._attribute_table = self._attribute_table.sort_values(["Sort"], ascending=False)
                 print("# {:>5} symbols meet filter_consolidation_p criteria".format(len(self._attribute_table)))
-#                 print(self._attribute_table['Sort']) #xxx
+                print(self._attribute_table['Sort']) #xxx
 
             # method filter based on stochastic signal
             if self.kwargs["filter_stochastic_sgl"]:
